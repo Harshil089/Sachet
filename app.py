@@ -813,13 +813,16 @@ def internal_error(error):
 def health_check():
     return jsonify({'status': 'healthy', 'timestamp': datetime.utcnow().isoformat()})
 
+# ... (keep everything above as is until the create_tables function)
+
 # Initialize database
 def create_tables():
     """Create database tables if they don't exist"""
     try:
         with app.app_context():
-            # Check if we can connect to database
-            db.engine.execute('SELECT 1')
+            # Check if we can connect to database (using newer SQLAlchemy syntax)
+            with db.engine.connect() as connection:
+                connection.execute(db.text('SELECT 1'))
             print("✅ Database connection successful")
             
             # Create tables if they don't exist
@@ -827,17 +830,27 @@ def create_tables():
             print("✅ Database tables created/verified")
             
             # Check if we have any existing data
-            case_count = MissingChild.query.count()
-            user_count = User.query.count()
-            print(f"📊 Existing  {case_count} cases, {user_count} users")
+            try:
+                case_count = MissingChild.query.count()
+                user_count = User.query.count()
+                print(f"📊 Existing  {case_count} cases, {user_count} users")
+            except Exception as count_error:
+                print(f"⚠️ Could not count existing  {str(count_error)}")
             
     except Exception as e:
-        print(f"❌ Database error: {str(e)}")
-        if "does not exist" in str(e).lower():
-            print("Creating database tables...")
+        print(f"❌ Database connection error: {str(e)}")
+        # If connection fails, try to create tables anyway
+        try:
+            print("🔄 Attempting to create tables...")
             db.create_all()
-        else:
-            raise e
+            print("✅ Database tables created successfully")
+        except Exception as create_error:
+            print(f"❌ Failed to create tables: {str(create_error)}")
+            # Don't raise error in production - let the app start anyway
+            if not app.config.get('DEBUG', False):
+                print("⚠️ Continuing without database verification (production mode)")
+            else:
+                raise create_error
 
 if __name__ == '__main__':
     create_tables()
