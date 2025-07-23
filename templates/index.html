@@ -38,8 +38,13 @@
                             <div class="row align-items-center">
                                 <div class="col-md-3 text-center">
                                     {% if case.photo_filename %}
-                                    <img src="{{ url_for('static', filename='uploads/photos/' + case.photo_filename) }}" 
-                                         class="img-fluid missing-child-photo" alt="{{ case.name }}">
+                                        {% if case.photo_filename.startswith('http') %}
+                                            <!-- Cloudinary URL -->
+                                            <img src="{{ case.photo_filename }}" class="img-fluid missing-child-photo" alt="{{ case.name }}">
+                                        {% else %}
+                                            <!-- Local file -->
+                                            <img src="{{ url_for('static', filename=case.photo_filename) }}" class="img-fluid missing-child-photo" alt="{{ case.name }}">
+                                        {% endif %}
                                     {% else %}
                                     <div class="placeholder-photo">
                                         <i class="fas fa-user fa-3x"></i>

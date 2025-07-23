@@ -12,6 +12,10 @@ import json
 import math
 from collections import defaultdict, Counter
 import statistics
+import cloudinary
+import cloudinary.uploader
+import cloudinary.api
+from cloudinary.utils import cloudinary_url
 
 from config import Config
 
@@ -19,7 +23,7 @@ from config import Config
 app = Flask(__name__)
 app.config.from_object(Config)
 
-# Ensure upload directories exist
+# Ensure upload directories exist for local development
 os.makedirs(os.path.join(app.config['UPLOAD_FOLDER'], 'photos'), exist_ok=True)
 os.makedirs(os.path.join(app.config['UPLOAD_FOLDER'], 'audio'), exist_ok=True)
 
@@ -29,10 +33,27 @@ login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'admin_login'
 
+# Initialize Cloudinary
+def init_cloudinary():
+    if app.config.get('CLOUDINARY_CLOUD_NAME'):
+        cloudinary.config(
+            cloud_name=app.config['CLOUDINARY_CLOUD_NAME'],
+            api_key=app.config['CLOUDINARY_API_KEY'],
+            api_secret=app.config['CLOUDINARY_API_SECRET'],
+            secure=True
+        )
+        print("✅ Cloudinary configured successfully")
+        return True
+    else:
+        print("⚠️ Cloudinary not configured - using local storage")
+        return False
+
+CLOUDINARY_ENABLED = init_cloudinary()
+
 # PREDEFINED DEMO PHONE NUMBERS (Replace with your verified Twilio numbers)
 DEMO_PHONE_NUMBERS = [
     '+919960846194',    # Replace with your verified number 1
-   # Replace with your verified number 2
+    # Replace with your verified number 2
     # Add more verified numbers as needed
 ]
 
@@ -56,8 +77,8 @@ class MissingChild(db.Model):
     last_seen_lat = db.Column(db.Float)
     last_seen_lng = db.Column(db.Float)
     description = db.Column(db.Text, nullable=False)
-    photo_filename = db.Column(db.String(200))
-    audio_filename = db.Column(db.String(200))
+    photo_filename = db.Column(db.String(500))  # Increased length for URLs
+    audio_filename = db.Column(db.String(500))  # Increased length for URLs
     date_reported = db.Column(db.DateTime, default=datetime.utcnow)
     status = db.Column(db.String(20), default='missing')
     sightings = db.relationship('Sighting', backref='missing_child', lazy=True)
@@ -104,6 +125,45 @@ def allowed_file(filename, allowed_extensions):
     return '.' in filename and \
            filename.rsplit('.', 1)[1].lower() in allowed_extensions
 
+def upload_to_cloudinary(file, folder, public_id):
+    """Upload file to Cloudinary"""
+    try:
+        if not CLOUDINARY_ENABLED:
+            return None
+            
+        result = cloudinary.uploader.upload(
+            file,
+            folder=folder,
+            public_id=public_id,
+            overwrite=True,
+            resource_type="auto",
+            transformation=[
+                {'width': 800, 'height': 800, 'crop': 'limit', 'quality': 'auto:good'}
+            ] if folder == 'missing_children/photos' else None
+        )
+        return result['secure_url']
+    except Exception as e:
+        print(f"Cloudinary upload error: {str(e)}")
+        return None
+
+def upload_audio_to_cloudinary(file, public_id):
+    """Upload audio file to Cloudinary"""
+    try:
+        if not CLOUDINARY_ENABLED:
+            return None
+            
+        result = cloudinary.uploader.upload(
+            file,
+            folder='missing_children/audio',
+            public_id=public_id,
+            overwrite=True,
+            resource_type="video"  # Cloudinary uses 'video' for audio files
+        )
+        return result['secure_url']
+    except Exception as e:
+        print(f"Cloudinary audio upload error: {str(e)}")
+        return None
+
 def get_location_coordinates(location_name):
     """Get coordinates from location name using Nominatim API"""
     if not location_name:
@@ -144,7 +204,7 @@ def send_sms_alert(message):
         print(f"Message: {message}")
         print(f"Would send to: {DEMO_PHONE_NUMBERS}")
         print("=== END SMS DEBUG ===\n")
-        return len(DEMO_PHONE_NUMBERS)  # Simulate success in debug mode
+        return len(DEMO_PHONE_NUMBERS)
     
     sent_count = 0
     failed_numbers = []
@@ -443,27 +503,59 @@ def report_missing():
         
         lat, lng = get_location_coordinates(location)
         
-        photo_filename = None
-        audio_filename = None
+        photo_url = None
+        audio_url = None
         
+        # Handle photo upload
         if 'photo' in request.files:
             photo = request.files['photo']
             if photo and photo.filename and allowed_file(photo.filename, {'png', 'jpg', 'jpeg', 'gif'}):
-                photo_filename = secure_filename(f"{report_id}_{photo.filename}")
-                photo_path = os.path.join(app.config['UPLOAD_FOLDER'], 'photos', photo_filename)
-                photo.save(photo_path)
-                
-                with Image.open(photo_path) as img:
-                    img.thumbnail((800, 800))
-                    img.save(photo_path)
+                if CLOUDINARY_ENABLED:
+                    # Upload to Cloudinary
+                    photo_url = upload_to_cloudinary(
+                        photo,
+                        'missing_children/photos',
+                        f"{report_id}_photo"
+                    )
+                    if photo_url:
+                        print(f"✅ Photo uploaded to Cloudinary: {photo_url}")
+                    else:
+                        flash('Photo upload failed, but report was created successfully', 'warning')
+                else:
+                    # Fallback to local storage (development)
+                    photo_filename = secure_filename(f"{report_id}_{photo.filename}")
+                    photo_path = os.path.join(app.config['UPLOAD_FOLDER'], 'photos', photo_filename)
+                    photo.save(photo_path)
+                    
+                    with Image.open(photo_path) as img:
+                        img.thumbnail((800, 800))
+                        img.save(photo_path)
+                    
+                    photo_url = f"uploads/photos/{photo_filename}"
         
+        # Handle audio upload
         if 'audio' in request.files:
             audio = request.files['audio']
             if audio and audio.filename and allowed_file(audio.filename, {'mp3', 'wav', 'ogg', 'm4a'}):
-                audio_filename = secure_filename(f"{report_id}_{audio.filename}")
-                audio_path = os.path.join(app.config['UPLOAD_FOLDER'], 'audio', audio_filename)
-                audio.save(audio_path)
+                if CLOUDINARY_ENABLED:
+                    # Upload to Cloudinary
+                    audio_url = upload_audio_to_cloudinary(
+                        audio,
+                        f"{report_id}_audio"
+                    )
+                    if audio_url:
+                        print(f"✅ Audio uploaded to Cloudinary: {audio_url}")
+                    else:
+                        flash('Audio upload failed, but report was created successfully', 'warning')
+                else:
+                    # Fallback to local storage (development)
+                    audio_filename = secure_filename(f"{report_id}_{audio.filename}")
+                    audio_path = os.path.join(app.config['UPLOAD_FOLDER'], 'audio', audio_filename)
+                    audio.save(audio_path)
+                    
+                    audio_url = f"uploads/audio/{audio_filename}"
         
+        # Create missing child record with URLs instead of filenames
         missing_child = MissingChild(
             report_id=report_id,
             name=name,
@@ -473,13 +565,14 @@ def report_missing():
             last_seen_lat=lat,
             last_seen_lng=lng,
             description=description,
-            photo_filename=photo_filename,
-            audio_filename=audio_filename
+            photo_filename=photo_url,
+            audio_filename=audio_url
         )
         
         db.session.add(missing_child)
         db.session.commit()
         
+        # Send SMS alert
         report_url = request.url_root + f"found/{report_id}"
         sms_message = f"MISSING: {name}, {age}yrs, {gender}, {location}. Report sightings: {report_url}"
         
@@ -722,20 +815,34 @@ def health_check():
 
 # Initialize database
 def create_tables():
-    """Create database tables"""
-    with app.app_context():
-        db.create_all()
-        print("✅ Database tables created successfully")
+    """Create database tables if they don't exist"""
+    try:
+        with app.app_context():
+            # Check if we can connect to database
+            db.engine.execute('SELECT 1')
+            print("✅ Database connection successful")
+            
+            # Create tables if they don't exist
+            db.create_all()
+            print("✅ Database tables created/verified")
+            
+            # Check if we have any existing data
+            case_count = MissingChild.query.count()
+            user_count = User.query.count()
+            print(f"📊 Existing  {case_count} cases, {user_count} users")
+            
+    except Exception as e:
+        print(f"❌ Database error: {str(e)}")
+        if "does not exist" in str(e).lower():
+            print("Creating database tables...")
+            db.create_all()
+        else:
+            raise e
 
 if __name__ == '__main__':
     create_tables()
-    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)), debug=app.config['DEBUG'])
-# For Gunicorn
-if __name__ != '__main__':
-    # Production mode with Gunicorn
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port, debug=app.config['DEBUG'])
+else:
+    # This runs in production with Gunicorn
     create_tables()
-
-if __name__ == '__main__':
-    # Development mode
-    create_tables()
-    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)), debug=app.config['DEBUG'])
