@@ -9,14 +9,18 @@
         <!-- ADMIN CONTROLS -->
         {% if child.status == 'missing' %}
             <a href="{{ url_for('update_case_status', report_id=child.report_id, status='found') }}" 
-               class="btn btn-success">Mark as Found</a>
+               class="btn btn-success me-2">Mark as Found</a>
         {% endif %}
         {% if child.status == 'found' %}
             <a href="{{ url_for('update_case_status', report_id=child.report_id, status='missing') }}" 
-               class="btn btn-warning">Mark as Missing Again</a>
+               class="btn btn-warning me-2">Mark as Missing Again</a>
         {% endif %}
-        <button type="button" class="btn btn-danger" 
-                onclick="confirmDelete('{{ child.report_id }}', '{{ child.name }}')">
+        <!-- FIXED DELETE BUTTON -->
+        <button type="button" 
+                class="btn btn-danger me-2" 
+                id="deleteCaseBtn"
+                data-report-id="{{ child.report_id }}"
+                data-child-name="{{ child.name }}">
             <i class="fas fa-trash me-1"></i>Delete Case
         </button>
         <a href="{{ url_for('admin_dashboard') }}" class="btn btn-secondary">Back to Dashboard</a>
@@ -132,12 +136,12 @@
 </div>
 
 <!-- Delete Confirmation Modal -->
-<div class="modal fade" id="deleteModal" tabindex="-1">
-    <div class="modal-dialog">
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header bg-danger text-white">
-                <h5 class="modal-title">⚠️ Confirm Deletion</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                <h5 class="modal-title" id="deleteModalLabel">⚠️ Confirm Deletion</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
                 <div class="alert alert-warning">
@@ -194,17 +198,28 @@
 
 {% block scripts %}
 <script>
-// Delete confirmation function
-function confirmDelete(reportId, childName) {
-    document.getElementById('deleteCaseName').textContent = childName;
-    document.getElementById('deleteCaseId').textContent = reportId;
-    document.getElementById('deleteForm').action = `/admin/delete_case/${reportId}`;
-    
-    const modal = new bootstrap.Modal(document.getElementById('deleteModal'));
-    modal.show();
-}
-
 document.addEventListener('DOMContentLoaded', function() {
+    // Fixed delete button functionality
+    const deleteCaseBtn = document.getElementById('deleteCaseBtn');
+    if (deleteCaseBtn) {
+        deleteCaseBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const reportId = this.getAttribute('data-report-id');
+            const childName = this.getAttribute('data-child-name');
+            
+            // Set modal content
+            document.getElementById('deleteCaseName').textContent = childName;
+            document.getElementById('deleteCaseId').textContent = reportId;
+            document.getElementById('deleteForm').action = `/admin/delete_case/${reportId}`;
+            
+            // Show modal
+            const deleteModal = new bootstrap.Modal(document.getElementById('deleteModal'));
+            deleteModal.show();
+        });
+    }
+
     // Parse map data from JSON
     var mapData = JSON.parse(document.getElementById('map-data').textContent);
     

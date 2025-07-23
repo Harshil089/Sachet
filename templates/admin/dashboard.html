@@ -95,10 +95,12 @@
                                        class="btn btn-sm btn-info" title="Public View" target="_blank">
                                         <i class="fas fa-external-link-alt"></i>
                                     </a>
+                                    <!-- FIXED DELETE BUTTON -->
                                     <button type="button" 
-                                            class="btn btn-sm btn-danger" 
+                                            class="btn btn-sm btn-danger delete-case-btn" 
                                             title="Delete Case"
-                                            onclick="confirmDelete('{{ case.report_id }}', '{{ case.name }}')">
+                                            data-report-id="{{ case.report_id }}"
+                                            data-child-name="{{ case.name }}">
                                         <i class="fas fa-trash"></i>
                                     </button>
                                 </div>
@@ -113,12 +115,12 @@
 </div>
 
 <!-- Delete Confirmation Modal -->
-<div class="modal fade" id="deleteModal" tabindex="-1">
-    <div class="modal-dialog">
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header bg-danger text-white">
-                <h5 class="modal-title">⚠️ Confirm Deletion</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                <h5 class="modal-title" id="deleteModalLabel">⚠️ Confirm Deletion</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
                 <div class="alert alert-warning">
@@ -150,12 +152,12 @@
 </div>
 
 <!-- Bulk Delete Modal -->
-<div class="modal fade" id="bulkDeleteModal" tabindex="-1">
-    <div class="modal-dialog">
+<div class="modal fade" id="bulkDeleteModal" tabindex="-1" aria-labelledby="bulkDeleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header bg-danger text-white">
-                <h5 class="modal-title">⚠️ Confirm Bulk Deletion</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                <h5 class="modal-title" id="bulkDeleteModalLabel">⚠️ Confirm Bulk Deletion</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
                 <div class="alert alert-danger">
@@ -167,7 +169,7 @@
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-danger" onclick="submitBulkDelete()">
+                <button type="button" class="btn btn-danger" id="confirmBulkDeleteBtn">
                     <i class="fas fa-trash me-1"></i>Delete All Selected Cases
                 </button>
             </div>
@@ -178,15 +180,36 @@
 
 {% block scripts %}
 <script>
-// Delete confirmation
-function confirmDelete(reportId, childName) {
-    document.getElementById('deleteCaseName').textContent = childName;
-    document.getElementById('deleteCaseId').textContent = reportId;
-    document.getElementById('deleteForm').action = `/admin/delete_case/${reportId}`;
+// Fixed delete functionality
+document.addEventListener('DOMContentLoaded', function() {
+    // Handle individual delete buttons
+    document.querySelectorAll('.delete-case-btn').forEach(button => {
+        button.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const reportId = this.getAttribute('data-report-id');
+            const childName = this.getAttribute('data-child-name');
+            
+            // Set modal content
+            document.getElementById('deleteCaseName').textContent = childName;
+            document.getElementById('deleteCaseId').textContent = reportId;
+            document.getElementById('deleteForm').action = `/admin/delete_case/${reportId}`;
+            
+            // Show modal
+            const deleteModal = new bootstrap.Modal(document.getElementById('deleteModal'));
+            deleteModal.show();
+        });
+    });
     
-    const modal = new bootstrap.Modal(document.getElementById('deleteModal'));
-    modal.show();
-}
+    // Handle bulk delete confirmation
+    document.getElementById('confirmBulkDeleteBtn').addEventListener('click', function() {
+        document.getElementById('bulkDeleteForm').submit();
+    });
+    
+    // Initialize checkbox states
+    updateBulkDeleteButton();
+});
 
 // Bulk operations
 function toggleSelectAll() {
@@ -214,7 +237,7 @@ function updateBulkDeleteButton() {
     }
     
     // Update select all checkbox state
-    if (checkedBoxes.length === totalBoxes.length) {
+    if (checkedBoxes.length === totalBoxes.length && totalBoxes.length > 0) {
         selectAllCheckbox.checked = true;
         selectAllCheckbox.indeterminate = false;
     } else if (checkedBoxes.length > 0) {
@@ -234,17 +257,8 @@ function bulkDeleteSelected() {
     }
     
     document.getElementById('bulkDeleteCount').textContent = checkedBoxes.length;
-    const modal = new bootstrap.Modal(document.getElementById('bulkDeleteModal'));
-    modal.show();
+    const bulkModal = new bootstrap.Modal(document.getElementById('bulkDeleteModal'));
+    bulkModal.show();
 }
-
-function submitBulkDelete() {
-    document.getElementById('bulkDeleteForm').submit();
-}
-
-// Initialize checkbox states
-document.addEventListener('DOMContentLoaded', function() {
-    updateBulkDeleteButton();
-});
 </script>
 {% endblock %}
