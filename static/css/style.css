@@ -417,19 +417,6 @@ footer {
     margin-top: auto;
 }
 
-/* Force remove modal backdrops */
-.modal-backdrop {
-    display: none !important;
-    opacity: 0 !important;
-    visibility: hidden !important;
-}
-
-/* Ensure body doesn't get modal-open class stuck */
-body.modal-open {
-    overflow: auto !important;
-    padding-right: 0 !important;
-}
-
 
 /* Status indicators */
 .status-missing {
@@ -624,4 +611,68 @@ body.modal-open {
     body {
         background: white !important;
     }
+}
+
+/* Force remove modal backdrops globally */
+.modal-backdrop {
+    display: none !important;
+    opacity: 0 !important;
+    visibility: hidden !important;
+}
+
+/* Ensure body doesn't get modal-open class stuck */
+body.modal-open {
+    overflow: auto !important;
+    padding-right: 0 !important;
+}
+
+/* Ensure all interactive elements are clickable */
+input[type="checkbox"] {
+    pointer-events: auto !important;
+    z-index: 999 !important;
+    position: relative !important;
+}
+
+.btn {
+    pointer-events: auto !important;
+    position: relative !important;
+    z-index: 999 !important;
+}
+
+.delete-case-link {
+    pointer-events: auto !important;
+    z-index: 9999 !important;
+    position: relative !important;
+}
+
+.btn-group {
+    position: relative !important;
+    z-index: 10 !important;
+}
+
+/* Ensure no overlays are blocking */
+.table-responsive {
+    overflow: visible !important;
+}
+
+.card-body {
+    overflow: visible !important;
+}
+
+/* Admin specific styles */
+.admin-dashboard .btn {
+    min-width: 80px;
+}
+
+.admin-dashboard .table th {
+    white-space: nowrap;
+}
+
+/* Modal fixes */
+.modal {
+    z-index: 9999999 !important;
+}
+
+.modal-dialog {
+    z-index: 9999999 !important;
 }

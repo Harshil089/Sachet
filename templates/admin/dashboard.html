@@ -42,10 +42,10 @@
     <div class="card-header d-flex justify-content-between align-items-center">
         <h5 class="mb-0">All Cases</h5>
         <div>
-            <button type="button" class="btn btn-sm btn-outline-primary" onclick="toggleSelectAll()">
+            <button type="button" class="btn btn-sm btn-outline-primary" id="selectAllButton">
                 <i class="fas fa-check-square me-1"></i>Select All
             </button>
-            <button type="button" class="btn btn-sm btn-danger" onclick="bulkDeleteSelected()" id="bulkDeleteBtn" style="display: none;">
+            <button type="button" class="btn btn-sm btn-danger" id="bulkDeleteBtn" style="display: none;">
                 <i class="fas fa-trash me-1"></i>Delete Selected
             </button>
         </div>
@@ -57,7 +57,7 @@
                     <thead>
                         <tr>
                             <th width="50">
-                                <input type="checkbox" id="selectAllCheckbox" onchange="toggleSelectAll()">
+                                <input type="checkbox" id="selectAllCheckbox">
                             </th>
                             <th>Report ID</th>
                             <th>Name</th>
@@ -73,7 +73,7 @@
                         <tr>
                             <td>
                                 <input type="checkbox" name="case_ids" value="{{ case.report_id }}" 
-                                       class="case-checkbox" onchange="updateBulkDeleteButton()">
+                                       class="case-checkbox">
                             </td>
                             <td>{{ case.report_id }}</td>
                             <td>{{ case.name }}</td>
@@ -95,13 +95,11 @@
                                        class="btn btn-sm btn-info" title="Public View" target="_blank">
                                         <i class="fas fa-external-link-alt"></i>
                                     </a>
-                                    <!-- SIMPLE DELETE LINK INSTEAD OF BUTTON -->
                                     <a href="javascript:void(0)" 
                                        class="btn btn-sm btn-danger delete-case-link" 
                                        title="Delete Case"
                                        data-report-id="{{ case.report_id }}"
-                                       data-child-name="{{ case.name }}"
-                                       style="z-index: 999999 !important; position: relative;">
+                                       data-child-name="{{ case.name }}">
                                         <i class="fas fa-trash"></i>
                                     </a>
                                 </div>
@@ -116,7 +114,7 @@
 </div>
 
 <!-- Delete Confirmation Modal -->
-<div class="modal fade" id="deleteModal" tabindex="-1" style="z-index: 9999999;">
+<div class="modal fade" id="deleteModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header bg-danger text-white">
@@ -153,7 +151,7 @@
 </div>
 
 <!-- Bulk Delete Modal -->
-<div class="modal fade" id="bulkDeleteModal" tabindex="-1" style="z-index: 9999999;">
+<div class="modal fade" id="bulkDeleteModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header bg-danger text-white">
@@ -181,56 +179,103 @@
 
 {% block scripts %}
 <script>
-// Debug version with console logs
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('DOM loaded, setting up delete buttons...');
+    console.log('Dashboard loaded, initializing...');
     
-    // Add click handlers to delete links
-    const deleteLinks = document.querySelectorAll('.delete-case-link');
-    console.log('Found delete links:', deleteLinks.length);
+    // Handle Select All button
+    const selectAllButton = document.getElementById('selectAllButton');
+    const selectAllCheckbox = document.getElementById('selectAllCheckbox');
     
-    deleteLinks.forEach((link, index) => {
-        console.log(`Setting up delete link ${index + 1}`);
-        
-        link.addEventListener('click', function(e) {
-            console.log('Delete link clicked!');
+    if (selectAllButton) {
+        selectAllButton.addEventListener('click', function(e) {
+            console.log('Select All button clicked');
             e.preventDefault();
             e.stopPropagation();
-            e.stopImmediatePropagation();
+            
+            const caseCheckboxes = document.querySelectorAll('.case-checkbox');
+            const isChecked = selectAllCheckbox.checked;
+            
+            // Toggle state
+            selectAllCheckbox.checked = !isChecked;
+            
+            caseCheckboxes.forEach(checkbox => {
+                checkbox.checked = !isChecked;
+            });
+            
+            updateBulkDeleteButton();
+            updateSelectAllButtonText();
+        });
+    }
+    
+    // Handle main select all checkbox
+    if (selectAllCheckbox) {
+        selectAllCheckbox.addEventListener('change', function(e) {
+            console.log('Select all checkbox changed:', this.checked);
+            
+            const caseCheckboxes = document.querySelectorAll('.case-checkbox');
+            caseCheckboxes.forEach(checkbox => {
+                checkbox.checked = this.checked;
+            });
+            
+            updateBulkDeleteButton();
+            updateSelectAllButtonText();
+        });
+    }
+    
+    // Handle individual case checkboxes
+    const caseCheckboxes = document.querySelectorAll('.case-checkbox');
+    caseCheckboxes.forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+            updateBulkDeleteButton();
+            updateSelectAllState();
+            updateSelectAllButtonText();
+        });
+    });
+    
+    // Handle delete links
+    const deleteLinks = document.querySelectorAll('.delete-case-link');
+    deleteLinks.forEach((link) => {
+        link.addEventListener('click', function(e) {
+            console.log('Delete link clicked');
+            e.preventDefault();
+            e.stopPropagation();
             
             const reportId = this.getAttribute('data-report-id');
             const childName = this.getAttribute('data-child-name');
             
-            console.log('Report ID:', reportId);
-            console.log('Child Name:', childName);
-            
-            // Set modal content
             document.getElementById('deleteCaseName').textContent = childName;
             document.getElementById('deleteCaseId').textContent = reportId;
             document.getElementById('deleteForm').action = `/admin/delete_case/${reportId}`;
             
-            console.log('Opening modal...');
-            
-            // Show modal
             const deleteModal = new bootstrap.Modal(document.getElementById('deleteModal'), {
-                backdrop: 'static',
-                keyboard: false
+                backdrop: false,
+                keyboard: true
             });
             deleteModal.show();
-            
-            return false;
-        });
-        
-        // Also try mousedown event
-        link.addEventListener('mousedown', function(e) {
-            console.log('Delete link mousedown event');
         });
     });
     
-    // Test if clicking anywhere works
-    document.addEventListener('click', function(e) {
-        console.log('Global click detected on:', e.target);
-    });
+    // Handle bulk delete button
+    const bulkDeleteBtn = document.getElementById('bulkDeleteBtn');
+    if (bulkDeleteBtn) {
+        bulkDeleteBtn.addEventListener('click', function(e) {
+            console.log('Bulk delete button clicked');
+            e.preventDefault();
+            
+            const checkedBoxes = document.querySelectorAll('.case-checkbox:checked');
+            if (checkedBoxes.length === 0) {
+                alert('Please select at least one case to delete.');
+                return;
+            }
+            
+            document.getElementById('bulkDeleteCount').textContent = checkedBoxes.length;
+            const bulkModal = new bootstrap.Modal(document.getElementById('bulkDeleteModal'), {
+                backdrop: false,
+                keyboard: true
+            });
+            bulkModal.show();
+        });
+    }
     
     // Handle bulk delete confirmation
     const confirmBulkBtn = document.getElementById('confirmBulkDeleteBtn');
@@ -243,41 +288,12 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Initialize
     updateBulkDeleteButton();
+    updateSelectAllButtonText();
 });
-
-// Alternative: Simple confirm-based delete (fallback)
-function simpleDelete(reportId, childName) {
-    console.log('Simple delete called for:', reportId, childName);
-    
-    if (confirm(`Are you sure you want to permanently delete the case for ${childName}? This action cannot be undone.`)) {
-        console.log('User confirmed deletion');
-        
-        // Create a form and submit it
-        const form = document.createElement('form');
-        form.method = 'POST';
-        form.action = `/admin/delete_case/${reportId}`;
-        document.body.appendChild(form);
-        form.submit();
-    }
-}
-
-// Bulk operations
-function toggleSelectAll() {
-    const selectAllCheckbox = document.getElementById('selectAllCheckbox');
-    const caseCheckboxes = document.querySelectorAll('.case-checkbox');
-    
-    caseCheckboxes.forEach(checkbox => {
-        checkbox.checked = selectAllCheckbox.checked;
-    });
-    
-    updateBulkDeleteButton();
-}
 
 function updateBulkDeleteButton() {
     const checkedBoxes = document.querySelectorAll('.case-checkbox:checked');
     const bulkDeleteBtn = document.getElementById('bulkDeleteBtn');
-    const selectAllCheckbox = document.getElementById('selectAllCheckbox');
-    const totalBoxes = document.querySelectorAll('.case-checkbox');
     
     if (checkedBoxes.length > 0) {
         bulkDeleteBtn.style.display = 'inline-block';
@@ -285,8 +301,13 @@ function updateBulkDeleteButton() {
     } else {
         bulkDeleteBtn.style.display = 'none';
     }
+}
+
+function updateSelectAllState() {
+    const checkedBoxes = document.querySelectorAll('.case-checkbox:checked');
+    const totalBoxes = document.querySelectorAll('.case-checkbox');
+    const selectAllCheckbox = document.getElementById('selectAllCheckbox');
     
-    // Update select all checkbox state
     if (checkedBoxes.length === totalBoxes.length && totalBoxes.length > 0) {
         selectAllCheckbox.checked = true;
         selectAllCheckbox.indeterminate = false;
@@ -299,24 +320,49 @@ function updateBulkDeleteButton() {
     }
 }
 
-function bulkDeleteSelected() {
+function updateSelectAllButtonText() {
+    const selectAllButton = document.getElementById('selectAllButton');
     const checkedBoxes = document.querySelectorAll('.case-checkbox:checked');
-    if (checkedBoxes.length === 0) {
-        alert('Please select at least one case to delete.');
-        return;
-    }
+    const totalBoxes = document.querySelectorAll('.case-checkbox');
     
-    document.getElementById('bulkDeleteCount').textContent = checkedBoxes.length;
-    const bulkModal = new bootstrap.Modal(document.getElementById('bulkDeleteModal'));
-    bulkModal.show();
+    if (checkedBoxes.length === totalBoxes.length && totalBoxes.length > 0) {
+        selectAllButton.innerHTML = '<i class="fas fa-square me-1"></i>Deselect All';
+    } else {
+        selectAllButton.innerHTML = '<i class="fas fa-check-square me-1"></i>Select All';
+    }
 }
 </script>
 
 <style>
-/* Force higher z-index and pointer events */
+/* Force remove modal backdrops */
+.modal-backdrop {
+    display: none !important;
+    opacity: 0 !important;
+    visibility: hidden !important;
+}
+
+/* Ensure body doesn't get modal-open class stuck */
+body.modal-open {
+    overflow: auto !important;
+    padding-right: 0 !important;
+}
+
+/* Ensure all interactive elements are clickable */
+input[type="checkbox"] {
+    pointer-events: auto !important;
+    z-index: 999 !important;
+    position: relative !important;
+}
+
+.btn {
+    pointer-events: auto !important;
+    position: relative !important;
+    z-index: 999 !important;
+}
+
 .delete-case-link {
     pointer-events: auto !important;
-    z-index: 999999 !important;
+    z-index: 9999 !important;
     position: relative !important;
 }
 
