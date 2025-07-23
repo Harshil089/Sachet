@@ -5,7 +5,10 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h2>Admin Dashboard</h2>
-    <a href="{{ url_for('admin_logout') }}" class="btn btn-outline-danger">Logout</a>
+    <div>
+        <a href="{{ url_for('admin_analytics') }}" class="btn btn-info me-2">📊 Analytics</a>
+        <a href="{{ url_for('admin_logout') }}" class="btn btn-outline-danger">Logout</a>
+    </div>
 </div>
 
 <div class="row mb-4">
@@ -36,45 +39,212 @@
 </div>
 
 <div class="card">
-    <div class="card-header">
-        <h5>All Cases</h5>
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">All Cases</h5>
+        <div>
+            <button type="button" class="btn btn-sm btn-outline-primary" onclick="toggleSelectAll()">
+                <i class="fas fa-check-square me-1"></i>Select All
+            </button>
+            <button type="button" class="btn btn-sm btn-danger" onclick="bulkDeleteSelected()" id="bulkDeleteBtn" style="display: none;">
+                <i class="fas fa-trash me-1"></i>Delete Selected
+            </button>
+        </div>
     </div>
     <div class="card-body">
-        <div class="table-responsive">
-            <table class="table table-striped">
-                <thead>
-                    <tr>
-                        <th>Report ID</th>
-                        <th>Name</th>
-                        <th>Age</th>
-                        <th>Status</th>
-                        <th>Date Reported</th>
-                        <th>Sightings</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for case in cases %}
-                    <tr>
-                        <td>{{ case.report_id }}</td>
-                        <td>{{ case.name }}</td>
-                        <td>{{ case.age }}</td>
-                        <td>
-                            <span class="badge bg-{{ 'danger' if case.status == 'missing' else 'success' }}">
-                                {{ case.status.title() }}
-                            </span>
-                        </td>
-                        <td>{{ case.date_reported.strftime('%Y-%m-%d %H:%M') }}</td>
-                        <td>{{ case.sightings|length }}</td>
-                        <td>
-                            <a href="{{ url_for('admin_case_detail', report_id=case.report_id) }}" 
-                               class="btn btn-sm btn-primary">View</a>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+        <form id="bulkDeleteForm" method="POST" action="{{ url_for('bulk_delete_cases') }}">
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th width="50">
+                                <input type="checkbox" id="selectAllCheckbox" onchange="toggleSelectAll()">
+                            </th>
+                            <th>Report ID</th>
+                            <th>Name</th>
+                            <th>Age</th>
+                            <th>Status</th>
+                            <th>Date Reported</th>
+                            <th>Sightings</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for case in cases %}
+                        <tr>
+                            <td>
+                                <input type="checkbox" name="case_ids" value="{{ case.report_id }}" 
+                                       class="case-checkbox" onchange="updateBulkDeleteButton()">
+                            </td>
+                            <td>{{ case.report_id }}</td>
+                            <td>{{ case.name }}</td>
+                            <td>{{ case.age }}</td>
+                            <td>
+                                <span class="badge bg-{{ 'danger' if case.status == 'missing' else 'success' if case.status == 'found' else 'secondary' }}">
+                                    {{ case.status.title() }}
+                                </span>
+                            </td>
+                            <td>{{ case.date_reported.strftime('%Y-%m-%d %H:%M') }}</td>
+                            <td>{{ case.sightings|length }}</td>
+                            <td>
+                                <div class="btn-group" role="group">
+                                    <a href="{{ url_for('admin_case_detail', report_id=case.report_id) }}" 
+                                       class="btn btn-sm btn-primary" title="View Details">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                    <a href="{{ url_for('case_detail', report_id=case.report_id) }}" 
+                                       class="btn btn-sm btn-info" title="Public View" target="_blank">
+                                        <i class="fas fa-external-link-alt"></i>
+                                    </a>
+                                    <button type="button" 
+                                            class="btn btn-sm btn-danger" 
+                                            title="Delete Case"
+                                            onclick="confirmDelete('{{ case.report_id }}', '{{ case.name }}')">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title">⚠️ Confirm Deletion</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    <strong>Warning:</strong> This action cannot be undone!
+                </div>
+                <p>Are you sure you want to permanently delete this case?</p>
+                <div class="bg-light p-3 rounded">
+                    <strong>Case:</strong> <span id="deleteCaseName"></span><br>
+                    <strong>Report ID:</strong> <span id="deleteCaseId"></span>
+                </div>
+                <p class="mt-3 text-muted">This will also delete:</p>
+                <ul class="text-muted">
+                    <li>All sighting reports</li>
+                    <li>Uploaded photos and audio files</li>
+                    <li>All associated data</li>
+                </ul>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <form id="deleteForm" method="POST" style="display: inline;">
+                    <button type="submit" class="btn btn-danger">
+                        <i class="fas fa-trash me-1"></i>Yes, Delete Permanently
+                    </button>
+                </form>
+            </div>
         </div>
     </div>
 </div>
+
+<!-- Bulk Delete Modal -->
+<div class="modal fade" id="bulkDeleteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title">⚠️ Confirm Bulk Deletion</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    <strong>Critical Warning:</strong> You are about to delete multiple cases permanently!
+                </div>
+                <p>Selected cases: <span id="bulkDeleteCount" class="fw-bold text-danger"></span></p>
+                <p class="text-muted">This action will permanently delete all selected cases and their associated data including sightings, photos, and audio files.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" onclick="submitBulkDelete()">
+                    <i class="fas fa-trash me-1"></i>Delete All Selected Cases
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Delete confirmation
+function confirmDelete(reportId, childName) {
+    document.getElementById('deleteCaseName').textContent = childName;
+    document.getElementById('deleteCaseId').textContent = reportId;
+    document.getElementById('deleteForm').action = `/admin/delete_case/${reportId}`;
+    
+    const modal = new bootstrap.Modal(document.getElementById('deleteModal'));
+    modal.show();
+}
+
+// Bulk operations
+function toggleSelectAll() {
+    const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+    const caseCheckboxes = document.querySelectorAll('.case-checkbox');
+    
+    caseCheckboxes.forEach(checkbox => {
+        checkbox.checked = selectAllCheckbox.checked;
+    });
+    
+    updateBulkDeleteButton();
+}
+
+function updateBulkDeleteButton() {
+    const checkedBoxes = document.querySelectorAll('.case-checkbox:checked');
+    const bulkDeleteBtn = document.getElementById('bulkDeleteBtn');
+    const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+    const totalBoxes = document.querySelectorAll('.case-checkbox');
+    
+    if (checkedBoxes.length > 0) {
+        bulkDeleteBtn.style.display = 'inline-block';
+        bulkDeleteBtn.innerHTML = `<i class="fas fa-trash me-1"></i>Delete Selected (${checkedBoxes.length})`;
+    } else {
+        bulkDeleteBtn.style.display = 'none';
+    }
+    
+    // Update select all checkbox state
+    if (checkedBoxes.length === totalBoxes.length) {
+        selectAllCheckbox.checked = true;
+        selectAllCheckbox.indeterminate = false;
+    } else if (checkedBoxes.length > 0) {
+        selectAllCheckbox.checked = false;
+        selectAllCheckbox.indeterminate = true;
+    } else {
+        selectAllCheckbox.checked = false;
+        selectAllCheckbox.indeterminate = false;
+    }
+}
+
+function bulkDeleteSelected() {
+    const checkedBoxes = document.querySelectorAll('.case-checkbox:checked');
+    if (checkedBoxes.length === 0) {
+        alert('Please select at least one case to delete.');
+        return;
+    }
+    
+    document.getElementById('bulkDeleteCount').textContent = checkedBoxes.length;
+    const modal = new bootstrap.Modal(document.getElementById('bulkDeleteModal'));
+    modal.show();
+}
+
+function submitBulkDelete() {
+    document.getElementById('bulkDeleteForm').submit();
+}
+
+// Initialize checkbox states
+document.addEventListener('DOMContentLoaded', function() {
+    updateBulkDeleteButton();
+});
+</script>
 {% endblock %}

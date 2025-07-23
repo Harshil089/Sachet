@@ -485,6 +485,133 @@ def generate_predictive_insights():
     return insights
 
 # Routes
+
+@app.route('/admin/delete_case/<report_id>', methods=['POST'])
+@login_required
+def delete_case(report_id):
+    """Delete a missing child case and all associated data"""
+    try:
+        missing_child = MissingChild.query.filter_by(report_id=report_id).first_or_404()
+        
+        # Store child name for flash message
+        child_name = missing_child.name
+        
+        # Delete associated sightings first (foreign key constraint)
+        sightings = Sighting.query.filter_by(report_id=report_id).all()
+        for sighting in sightings:
+            db.session.delete(sighting)
+        
+        # Delete files from Cloudinary if they exist
+        if CLOUDINARY_ENABLED:
+            try:
+                # Delete photo from Cloudinary
+                if missing_child.photo_filename and missing_child.photo_filename.startswith('http'):
+                    photo_public_id = f"missing_children/photos/{report_id}_photo"
+                    cloudinary.uploader.destroy(photo_public_id)
+                    print(f"✅ Deleted photo from Cloudinary: {photo_public_id}")
+                
+                # Delete audio from Cloudinary
+                if missing_child.audio_filename and missing_child.audio_filename.startswith('http'):
+                    audio_public_id = f"missing_children/audio/{report_id}_audio"
+                    cloudinary.uploader.destroy(audio_public_id, resource_type="video")
+                    print(f"✅ Deleted audio from Cloudinary: {audio_public_id}")
+                    
+            except Exception as cloudinary_error:
+                print(f"⚠️ Cloudinary deletion error: {str(cloudinary_error)}")
+        else:
+            # Delete local files if they exist
+            try:
+                if missing_child.photo_filename and not missing_child.photo_filename.startswith('http'):
+                    photo_path = os.path.join(app.config['UPLOAD_FOLDER'], 'photos', missing_child.photo_filename.split('/')[-1])
+                    if os.path.exists(photo_path):
+                        os.remove(photo_path)
+                        print(f"✅ Deleted local photo: {photo_path}")
+                
+                if missing_child.audio_filename and not missing_child.audio_filename.startswith('http'):
+                    audio_path = os.path.join(app.config['UPLOAD_FOLDER'], 'audio', missing_child.audio_filename.split('/')[-1])
+                    if os.path.exists(audio_path):
+                        os.remove(audio_path)
+                        print(f"✅ Deleted local audio: {audio_path}")
+                        
+            except Exception as file_error:
+                print(f"⚠️ Local file deletion error: {str(file_error)}")
+        
+        # Delete the missing child record
+        db.session.delete(missing_child)
+        db.session.commit()
+        
+        # Send notification SMS about case deletion
+        if not app.config['DEBUG']:
+            deletion_message = f"CASE DELETED: {child_name} case (ID: {report_id}) has been permanently deleted by admin. Time: {datetime.now().strftime('%H:%M')}"
+            sent_count = send_sms_alert(deletion_message)
+            print(f"Deletion alert sent to {sent_count} numbers")
+        
+        flash(f'Case for {child_name} (ID: {report_id}) has been permanently deleted along with all associated data.', 'success')
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"❌ Error deleting case: {str(e)}")
+        flash(f'Error deleting case: {str(e)}', 'error')
+    
+    return redirect(url_for('admin_dashboard'))
+
+@app.route('/admin/bulk_delete', methods=['POST'])
+@login_required
+def bulk_delete_cases():
+    """Delete multiple cases at once"""
+    try:
+        case_ids = request.form.getlist('case_ids')
+        
+        if not case_ids:
+            flash('No cases selected for deletion.', 'warning')
+            return redirect(url_for('admin_dashboard'))
+        
+        deleted_count = 0
+        deleted_names = []
+        
+        for report_id in case_ids:
+            missing_child = MissingChild.query.filter_by(report_id=report_id).first()
+            if missing_child:
+                deleted_names.append(missing_child.name)
+                
+                # Delete associated sightings
+                sightings = Sighting.query.filter_by(report_id=report_id).all()
+                for sighting in sightings:
+                    db.session.delete(sighting)
+                
+                # Delete files (same logic as single delete)
+                if CLOUDINARY_ENABLED:
+                    try:
+                        if missing_child.photo_filename and missing_child.photo_filename.startswith('http'):
+                            photo_public_id = f"missing_children/photos/{report_id}_photo"
+                            cloudinary.uploader.destroy(photo_public_id)
+                        
+                        if missing_child.audio_filename and missing_child.audio_filename.startswith('http'):
+                            audio_public_id = f"missing_children/audio/{report_id}_audio"
+                            cloudinary.uploader.destroy(audio_public_id, resource_type="video")
+                    except:
+                        pass
+                
+                # Delete the record
+                db.session.delete(missing_child)
+                deleted_count += 1
+        
+        db.session.commit()
+        
+        # Send bulk deletion notification
+        if deleted_count > 0 and not app.config['DEBUG']:
+            bulk_message = f"BULK DELETION: {deleted_count} cases deleted by admin. Time: {datetime.now().strftime('%H:%M')}"
+            send_sms_alert(bulk_message)
+        
+        flash(f'Successfully deleted {deleted_count} cases: {", ".join(deleted_names)}', 'success')
+        
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Error during bulk deletion: {str(e)}', 'error')
+    
+    return redirect(url_for('admin_dashboard'))
+
+
 @app.route('/')
 def index():
     recent_cases = MissingChild.query.filter_by(status='missing').order_by(MissingChild.date_reported.desc()).limit(5).all()
