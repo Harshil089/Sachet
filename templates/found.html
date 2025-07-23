@@ -1,0 +1,164 @@
+{% extends "base.html" %}
+
+{% block title %}Report Sighting - {{ child.name }}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header bg-success text-white">
+                <h4 class="mb-0">Report Sighting</h4>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-info">
+                    <h5>Missing Child Information</h5>
+                    <div class="row">
+                        <div class="col-md-3">
+                            {% if child.photo_filename %}
+                            <img src="{{ url_for('static', filename='uploads/photos/' + child.photo_filename) }}" 
+                                 class="img-fluid rounded" alt="{{ child.name }}">
+                            {% endif %}
+                        </div>
+                        <div class="col-md-9">
+                            <p><strong>Name:</strong> {{ child.name }}</p>
+                            <p><strong>Age:</strong> {{ child.age }} years old</p>
+                            <p><strong>Gender:</strong> {{ child.gender }}</p>
+                            <p><strong>Last Seen:</strong> {{ child.last_seen_location }}</p>
+                            <p><strong>Description:</strong> {{ child.description }}</p>
+                        </div>
+                    </div>
+                </div>
+
+                <form method="POST" id="sightingForm">
+                    <div class="mb-3">
+                        <label for="location" class="form-label">Sighting Location *</label>
+                        <input type="text" class="form-control" id="location" name="location" required
+                               placeholder="Where did you see this child?">
+                        <div class="form-text">Start typing to see location suggestions</div>
+                        <div id="map" style="height: 300px; margin-top: 10px;" class="d-none"></div>
+                        <div id="location-status" class="mt-2"></div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="description" class="form-label">Additional Details</label>
+                        <textarea class="form-control" id="description" name="description" rows="3"
+                                  placeholder="What was the child doing? Who were they with? Direction of travel..."></textarea>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="reporter_phone" class="form-label">Your Phone Number (Optional)</label>
+                        <input type="tel" class="form-control" id="reporter_phone" name="reporter_phone"
+                               placeholder="In case authorities need to contact you">
+                    </div>
+
+                    <div class="alert alert-warning">
+                        <strong>Important:</strong> If this is an emergency or you are with the child, call 911 immediately. Only use this form for reporting sightings.
+                    </div>
+
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-success btn-lg">Report Sighting</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let map;
+let marker;
+let geocodeTimeout;
+
+document.getElementById('location').addEventListener('input', function() {
+    const location = this.value.trim();
+    
+    if (geocodeTimeout) {
+        clearTimeout(geocodeTimeout);
+    }
+    
+    // Clear status
+    document.getElementById('location-status').innerHTML = '';
+    
+    if (location.length > 2) {
+        this.style.backgroundColor = '#f8f9fa';
+        this.style.borderColor = '#007bff';
+        document.getElementById('location-status').innerHTML = '<small class="text-info">Searching location...</small>';
+        
+        geocodeTimeout = setTimeout(() => {
+            geocodeLocation(location, this);
+        }, 500);
+    } else {
+        hideMap();
+        this.style.backgroundColor = '';
+        this.style.borderColor = '';
+    }
+});
+
+function geocodeLocation(location, inputElement) {
+    fetch(`/api/geocode?location=${encodeURIComponent(location)}`)
+        .then(response => response.json())
+        .then(data => {
+            inputElement.style.backgroundColor = '';
+            
+            if (data.success && data.lat && data.lng) {
+                showMap(data.lat, data.lng, location);
+                inputElement.style.borderColor = '#28a745';
+                document.getElementById('location-status').innerHTML = '<small class="text-success">✓ Location found</small>';
+            } else {
+                inputElement.style.borderColor = '#dc3545';
+                document.getElementById('location-status').innerHTML = '<small class="text-danger">Location not found. Please try a different search.</small>';
+                hideMap();
+            }
+        })
+        .catch(error => {
+            console.error('Geocoding error:', error);
+            inputElement.style.backgroundColor = '';
+            inputElement.style.borderColor = '#dc3545';
+            document.getElementById('location-status').innerHTML = '<small class="text-danger">Error searching location. Please try again.</small>';
+            hideMap();
+        });
+}
+
+function showMap(lat, lng, locationName) {
+    const mapDiv = document.getElementById('map');
+    mapDiv.classList.remove('d-none');
+    
+    if (!map) {
+        map = L.map('map').setView([lat, lng], 15);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+    } else {
+        map.setView([lat, lng], 15);
+    }
+    
+    if (marker) {
+        map.removeLayer(marker);
+    }
+    
+    marker = L.marker([lat, lng]).addTo(map)
+        .bindPopup(`Sighting location: ${locationName}`)
+        .openPopup();
+}
+
+function hideMap() {
+    const mapDiv = document.getElementById('map');
+    mapDiv.classList.add('d-none');
+}
+
+// Form validation
+document.getElementById('sightingForm').addEventListener('submit', function(e) {
+    const locationInput = document.getElementById('location');
+    const location = locationInput.value.trim();
+    
+    if (location.length < 3) {
+        e.preventDefault();
+        alert('Please enter a more specific location (at least 3 characters)');
+        locationInput.focus();
+        return false;
+    }
+});
+</script>
+{% endblock %}

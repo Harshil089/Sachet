@@ -1,0 +1,219 @@
+{% extends "base.html" %}
+
+{% block title %}Report Missing Child{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header bg-danger text-white">
+                <h4 class="mb-0">Report Missing Child</h4>
+            </div>
+            <div class="card-body">
+                <form method="POST" enctype="multipart/form-data" id="reportForm">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="name" class="form-label">Child's Name *</label>
+                                <input type="text" class="form-control" id="name" name="name" required>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="mb-3">
+                                <label for="age" class="form-label">Age *</label>
+                                <input type="number" class="form-control" id="age" name="age" min="0" max="18" required>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="mb-3">
+                                <label for="gender" class="form-label">Gender *</label>
+                                <select class="form-control" id="gender" name="gender" required>
+                                    <option value="">Select</option>
+                                    <option value="Male">Male</option>
+                                    <option value="Female">Female</option>
+                                    <option value="Other">Other</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="location" class="form-label">Last Seen Location *</label>
+                        <input type="text" class="form-control" id="location" name="location" required
+                               placeholder="Enter address, city, or landmark...">
+                        <div class="form-text">Start typing to see location suggestions</div>
+                        <div id="map" style="height: 300px; margin-top: 10px;" class="d-none"></div>
+                        <div id="location-status" class="mt-2"></div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="description" class="form-label">Description *</label>
+                        <textarea class="form-control" id="description" name="description" rows="4" required
+                                  placeholder="Physical appearance, clothing, distinctive features..."></textarea>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="photo" class="form-label">Recent Photo *</label>
+                                <input type="file" class="form-control" id="photo" name="photo" 
+                                       accept="image/*" required>
+                                <div class="form-text">Max file size: 16MB</div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="audio" class="form-label">Voice Recording (Optional)</label>
+                                <input type="file" class="form-control" id="audio" name="audio" 
+                                       accept="audio/*">
+                                <div class="form-text">Child's voice for identification</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="alert alert-warning">
+                        <strong>Important:</strong> Please ensure all information is accurate. False reports are illegal and can hinder actual search efforts.
+                    </div>
+
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-danger btn-lg">Submit Missing Child Report</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let map;
+let marker;
+let geocodeTimeout;
+
+document.getElementById('location').addEventListener('input', function() {
+    const location = this.value.trim();
+    
+    // Clear previous timeout
+    if (geocodeTimeout) {
+        clearTimeout(geocodeTimeout);
+    }
+    
+    // Clear status
+    document.getElementById('location-status').innerHTML = '';
+    
+    // Only geocode if location is at least 3 characters
+    if (location.length > 2) {
+        // Add loading indicator
+        this.style.backgroundColor = '#f8f9fa';
+        this.style.borderColor = '#007bff';
+        document.getElementById('location-status').innerHTML = '<small class="text-info">Searching location...</small>';
+        
+        // Debounce the geocoding request
+        geocodeTimeout = setTimeout(() => {
+            geocodeLocation(location, this);
+        }, 500);
+    } else {
+        hideMap();
+        resetLocationInput(this);
+    }
+});
+
+function geocodeLocation(location, inputElement) {
+    console.log('Geocoding:', location); // Debug
+    
+    fetch(`/api/geocode?location=${encodeURIComponent(location)}`)
+        .then(response => {
+            console.log('Response status:', response.status); // Debug
+            return response.json();
+        })
+        .then(data => {
+            console.log('Geocode response:', data); // Debug
+            resetLocationInput(inputElement);
+            
+            if (data.success && data.lat && data.lng) {
+                showMap(data.lat, data.lng, location);
+                inputElement.style.borderColor = '#28a745'; // Success - green
+                document.getElementById('location-status').innerHTML = '<small class="text-success">✓ Location found</small>';
+            } else {
+                inputElement.style.borderColor = '#dc3545'; // Error - red
+                document.getElementById('location-status').innerHTML = '<small class="text-danger">Location not found. Please try a different search.</small>';
+                hideMap();
+            }
+        })
+        .catch(error => {
+            console.error('Geocoding error:', error);
+            resetLocationInput(inputElement);
+            inputElement.style.borderColor = '#dc3545'; // Error - red
+            document.getElementById('location-status').innerHTML = '<small class="text-danger">Error searching location. Please try again.</small>';
+            hideMap();
+        });
+}
+
+function resetLocationInput(inputElement) {
+    inputElement.style.backgroundColor = '';
+    // Don't reset border color here - let success/error colors show
+}
+
+function showMap(lat, lng, locationName) {
+    const mapDiv = document.getElementById('map');
+    mapDiv.classList.remove('d-none');
+    
+    if (!map) {
+        map = L.map('map').setView([lat, lng], 15);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+    } else {
+        map.setView([lat, lng], 15);
+    }
+    
+    if (marker) {
+        map.removeLayer(marker);
+    }
+    
+    marker = L.marker([lat, lng]).addTo(map)
+        .bindPopup(`Location: ${locationName}`)
+        .openPopup();
+}
+
+function hideMap() {
+    const mapDiv = document.getElementById('map');
+    mapDiv.classList.add('d-none');
+}
+
+// Form validation
+document.getElementById('reportForm').addEventListener('submit', function(e) {
+    const locationInput = document.getElementById('location');
+    const location = locationInput.value.trim();
+    
+    if (location.length < 3) {
+        e.preventDefault();
+        alert('Please enter a more specific location (at least 3 characters)');
+        locationInput.focus();
+        return false;
+    }
+});
+
+// Photo preview
+document.getElementById('photo').addEventListener('change', function(event) {
+    const file = event.target.files[0];
+    if (file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            let preview = document.getElementById('photo-preview');
+            if (!preview) {
+                preview = document.createElement('img');
+                preview.id = 'photo-preview';
+                preview.className = 'img-thumbnail mt-2';
+                preview.style.maxWidth = '200px';
+                preview.style.maxHeight = '200px';
+                document.getElementById('photo').parentNode.appendChild(preview);
+            }
+            preview.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+    }
+});
+</script>
+{% endblock %}

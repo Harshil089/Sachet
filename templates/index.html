@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="hero-section text-center mb-5 p-5 bg-light rounded">
+    <h1 class="display-4 text-danger">Missing Child Alert System</h1>
+    <p class="lead">Help us bring children home safely. Report missing children or report sightings.</p>
+    <div class="mt-4">
+        <a href="{{ url_for('report_missing') }}" class="btn btn-danger btn-lg me-3">Report Missing Child</a>
+        <!-- Subscribe button removed - using predefined list now -->
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <h2>Recent Missing Children Cases</h2>
+        {% if recent_cases %}
+            {% for case in recent_cases %}
+            <div class="card mb-3">
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3">
+                            {% if case.photo_filename %}
+                            <img src="{{ url_for('static', filename='uploads/photos/' + case.photo_filename) }}" 
+                                 class="img-fluid rounded missing-child-photo" alt="{{ case.name }}">
+                            {% else %}
+                            <div class="placeholder-photo">No Photo</div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-9">
+                            <h5 class="card-title text-danger">{{ case.name }}</h5>
+                            <p class="card-text">
+                                <strong>Age:</strong> {{ case.age }} years old<br>
+                                <strong>Gender:</strong> {{ case.gender }}<br>
+                                <strong>Last Seen:</strong> {{ case.last_seen_location }}<br>
+                                <strong>Reported:</strong> {{ case.date_reported.strftime('%B %d, %Y at %I:%M %p') }}<br>
+                                <strong>Description:</strong> {{ case.description[:100] }}...
+                            </p>
+                            <div class="mt-3">
+                                <a href="{{ url_for('case_detail', report_id=case.report_id) }}" class="btn btn-primary">View Details</a>
+                                <a href="{{ url_for('report_found', report_id=case.report_id) }}" class="btn btn-success">Report Sighting</a>
+                                <!-- Mark as Found button removed for regular users -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <p class="text-muted">No recent missing children cases.</p>
+        {% endif %}
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h5>Important Information</h5>
+            </div>
+            <div class="card-body">
+                <h6>What to do if you see a missing child:</h6>
+                <ol>
+                    <li>Do not approach the child directly</li>
+                    <li>Call local authorities immediately</li>
+                    <li>Report the sighting using our system</li>
+                    <li>Note the exact location and time</li>
+                    <li>Provide any additional details</li>
+                </ol>
+                
+                <hr>
+                
+                <h6>Emergency Contacts:</h6>
+                <p>
+                    <strong>Police:</strong> 911<br>
+                    <strong>Child Helpline:</strong> 1-800-THE-LOST
+                </p>
+
+                <hr>
+
+                <div class="text-center">
+                    <small class="text-muted">
+                        Admin Access: 
+                        <a href="{{ url_for('admin_login') }}" class="text-decoration-none">Login</a>
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

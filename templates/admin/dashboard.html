@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Dashboard{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>Admin Dashboard</h2>
+    <a href="{{ url_for('admin_logout') }}" class="btn btn-outline-danger">Logout</a>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="card text-white bg-danger">
+            <div class="card-body">
+                <h5 class="card-title">Active Cases</h5>
+                <h3>{{ active_cases }}</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-white bg-success">
+            <div class="card-body">
+                <h5 class="card-title">Found Cases</h5>
+                <h3>{{ found_cases }}</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-white bg-primary">
+            <div class="card-body">
+                <h5 class="card-title">Total Cases</h5>
+                <h3>{{ total_cases }}</h3>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h5>All Cases</h5>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Report ID</th>
+                        <th>Name</th>
+                        <th>Age</th>
+                        <th>Status</th>
+                        <th>Date Reported</th>
+                        <th>Sightings</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for case in cases %}
+                    <tr>
+                        <td>{{ case.report_id }}</td>
+                        <td>{{ case.name }}</td>
+                        <td>{{ case.age }}</td>
+                        <td>
+                            <span class="badge bg-{{ 'danger' if case.status == 'missing' else 'success' }}">
+                                {{ case.status.title() }}
+                            </span>
+                        </td>
+                        <td>{{ case.date_reported.strftime('%Y-%m-%d %H:%M') }}</td>
+                        <td>{{ case.sightings|length }}</td>
+                        <td>
+                            <a href="{{ url_for('admin_case_detail', report_id=case.report_id) }}" 
+                               class="btn btn-sm btn-primary">View</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
