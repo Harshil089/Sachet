@@ -31,8 +31,8 @@ login_manager.login_view = 'admin_login'
 
 # PREDEFINED DEMO PHONE NUMBERS (Replace with your verified Twilio numbers)
 DEMO_PHONE_NUMBERS = [
-    '+1234567890',    # Replace with your verified number 1
-    '+0987654321',    # Replace with your verified number 2
+    '+919960846194',    # Replace with your verified number 1
+   # Replace with your verified number 2
     # Add more verified numbers as needed
 ]
 
