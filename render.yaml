@@ -2,15 +2,16 @@ services:
   - type: web
     name: Sachet
     env: python
-    region: oregon
-    plan: free
+
+    # 👇 tell Render which Python image to pull
+    pythonVersion: 3.11   # 3.10 or 3.11 both work – just not 3.13 yet!
+
     buildCommand: pip install -r requirements.txt
-    startCommand: python app.py
+    startCommand: gunicorn app:app            # use Gunicorn in prod
     healthCheckPath: /health
+
     envVars:
-      - key: PYTHON_VERSION
-        value: 3.11.0
-      - key: RENDER
-        value: true
       - key: FLASK_ENV
         value: production
+      - key: SECRET_KEY
+        sync: false            # add the rest of your secrets in the UI
