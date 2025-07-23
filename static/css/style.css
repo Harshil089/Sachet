@@ -417,6 +417,20 @@ footer {
     margin-top: auto;
 }
 
+/* Force remove modal backdrops */
+.modal-backdrop {
+    display: none !important;
+    opacity: 0 !important;
+    visibility: hidden !important;
+}
+
+/* Ensure body doesn't get modal-open class stuck */
+body.modal-open {
+    overflow: auto !important;
+    padding-right: 0 !important;
+}
+
+
 /* Status indicators */
 .status-missing {
     background: var(--gradient-primary);
