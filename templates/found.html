@@ -15,8 +15,19 @@
                     <div class="row">
                         <div class="col-md-3">
                             {% if child.photo_filename %}
-                            <img src="{{ url_for('static', filename='uploads/photos/' + child.photo_filename) }}" 
-                                 class="img-fluid rounded" alt="{{ child.name }}">
+                                {% if child.photo_filename.startswith('http') %}
+                                    <!-- Cloudinary URL -->
+                                    <img src="{{ child.photo_filename }}" 
+                                         class="img-fluid rounded" alt="{{ child.name }}">
+                                {% else %}
+                                    <!-- Local file -->
+                                    <img src="{{ url_for('static', filename=child.photo_filename) }}" 
+                                         class="img-fluid rounded" alt="{{ child.name }}">
+                                {% endif %}
+                            {% else %}
+                                <div class="placeholder-photo">
+                                    <i class="fas fa-user fa-3x"></i>
+                                </div>
                             {% endif %}
                         </div>
                         <div class="col-md-9">
@@ -25,6 +36,25 @@
                             <p><strong>Gender:</strong> {{ child.gender }}</p>
                             <p><strong>Last Seen:</strong> {{ child.last_seen_location }}</p>
                             <p><strong>Description:</strong> {{ child.description }}</p>
+                            
+                            {% if child.audio_filename %}
+                            <div class="mt-3">
+                                <strong>Voice Recording:</strong><br>
+                                {% if child.audio_filename.startswith('http') %}
+                                    <!-- Cloudinary URL -->
+                                    <audio controls class="w-100">
+                                        <source src="{{ child.audio_filename }}" type="audio/mpeg">
+                                        Your browser does not support the audio element.
+                                    </audio>
+                                {% else %}
+                                    <!-- Local file -->
+                                    <audio controls class="w-100">
+                                        <source src="{{ url_for('static', filename=child.audio_filename) }}" type="audio/mpeg">
+                                        Your browser does not support the audio element.
+                                    </audio>
+                                {% endif %}
+                            </div>
+                            {% endif %}
                         </div>
                     </div>
                 </div>

@@ -851,6 +851,26 @@ def create_tables():
                 print("⚠️ Continuing without database verification (production mode)")
             else:
                 raise create_error
+            
+# Add this route for debugging image URLs
+@app.route('/debug/case/<report_id>')
+def debug_case(report_id):
+    if not app.config['DEBUG'] and not current_user.is_authenticated:
+        return "Unauthorized", 401
+    
+    missing_child = MissingChild.query.filter_by(report_id=report_id).first_or_404()
+    
+    debug_info = {
+        'report_id': missing_child.report_id,
+        'name': missing_child.name,
+        'photo_filename': missing_child.photo_filename,
+        'photo_is_url': missing_child.photo_filename.startswith('http') if missing_child.photo_filename else False,
+        'audio_filename': missing_child.audio_filename,
+        'audio_is_url': missing_child.audio_filename.startswith('http') if missing_child.audio_filename else False,
+        'cloudinary_enabled': CLOUDINARY_ENABLED
+    }
+    
+    return jsonify(debug_info)
 
 if __name__ == '__main__':
     create_tables()
