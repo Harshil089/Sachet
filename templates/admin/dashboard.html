@@ -95,14 +95,15 @@
                                        class="btn btn-sm btn-info" title="Public View" target="_blank">
                                         <i class="fas fa-external-link-alt"></i>
                                     </a>
-                                    <!-- FIXED DELETE BUTTON -->
-                                    <button type="button" 
-                                            class="btn btn-sm btn-danger delete-case-btn" 
-                                            title="Delete Case"
-                                            data-report-id="{{ case.report_id }}"
-                                            data-child-name="{{ case.name }}">
+                                    <!-- SIMPLE DELETE LINK INSTEAD OF BUTTON -->
+                                    <a href="javascript:void(0)" 
+                                       class="btn btn-sm btn-danger delete-case-link" 
+                                       title="Delete Case"
+                                       data-report-id="{{ case.report_id }}"
+                                       data-child-name="{{ case.name }}"
+                                       style="z-index: 999999 !important; position: relative;">
                                         <i class="fas fa-trash"></i>
-                                    </button>
+                                    </a>
                                 </div>
                             </td>
                         </tr>
@@ -115,12 +116,12 @@
 </div>
 
 <!-- Delete Confirmation Modal -->
-<div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+<div class="modal fade" id="deleteModal" tabindex="-1" style="z-index: 9999999;">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header bg-danger text-white">
-                <h5 class="modal-title" id="deleteModalLabel">⚠️ Confirm Deletion</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                <h5 class="modal-title">⚠️ Confirm Deletion</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
                 <div class="alert alert-warning">
@@ -152,12 +153,12 @@
 </div>
 
 <!-- Bulk Delete Modal -->
-<div class="modal fade" id="bulkDeleteModal" tabindex="-1" aria-labelledby="bulkDeleteModalLabel" aria-hidden="true">
+<div class="modal fade" id="bulkDeleteModal" tabindex="-1" style="z-index: 9999999;">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header bg-danger text-white">
-                <h5 class="modal-title" id="bulkDeleteModalLabel">⚠️ Confirm Bulk Deletion</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                <h5 class="modal-title">⚠️ Confirm Bulk Deletion</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
                 <div class="alert alert-danger">
@@ -180,36 +181,85 @@
 
 {% block scripts %}
 <script>
-// Fixed delete functionality
+// Debug version with console logs
 document.addEventListener('DOMContentLoaded', function() {
-    // Handle individual delete buttons
-    document.querySelectorAll('.delete-case-btn').forEach(button => {
-        button.addEventListener('click', function(e) {
+    console.log('DOM loaded, setting up delete buttons...');
+    
+    // Add click handlers to delete links
+    const deleteLinks = document.querySelectorAll('.delete-case-link');
+    console.log('Found delete links:', deleteLinks.length);
+    
+    deleteLinks.forEach((link, index) => {
+        console.log(`Setting up delete link ${index + 1}`);
+        
+        link.addEventListener('click', function(e) {
+            console.log('Delete link clicked!');
             e.preventDefault();
             e.stopPropagation();
+            e.stopImmediatePropagation();
             
             const reportId = this.getAttribute('data-report-id');
             const childName = this.getAttribute('data-child-name');
+            
+            console.log('Report ID:', reportId);
+            console.log('Child Name:', childName);
             
             // Set modal content
             document.getElementById('deleteCaseName').textContent = childName;
             document.getElementById('deleteCaseId').textContent = reportId;
             document.getElementById('deleteForm').action = `/admin/delete_case/${reportId}`;
             
+            console.log('Opening modal...');
+            
             // Show modal
-            const deleteModal = new bootstrap.Modal(document.getElementById('deleteModal'));
+            const deleteModal = new bootstrap.Modal(document.getElementById('deleteModal'), {
+                backdrop: 'static',
+                keyboard: false
+            });
             deleteModal.show();
+            
+            return false;
+        });
+        
+        // Also try mousedown event
+        link.addEventListener('mousedown', function(e) {
+            console.log('Delete link mousedown event');
         });
     });
     
-    // Handle bulk delete confirmation
-    document.getElementById('confirmBulkDeleteBtn').addEventListener('click', function() {
-        document.getElementById('bulkDeleteForm').submit();
+    // Test if clicking anywhere works
+    document.addEventListener('click', function(e) {
+        console.log('Global click detected on:', e.target);
     });
     
-    // Initialize checkbox states
+    // Handle bulk delete confirmation
+    const confirmBulkBtn = document.getElementById('confirmBulkDeleteBtn');
+    if (confirmBulkBtn) {
+        confirmBulkBtn.addEventListener('click', function() {
+            console.log('Bulk delete confirmed');
+            document.getElementById('bulkDeleteForm').submit();
+        });
+    }
+    
+    // Initialize
     updateBulkDeleteButton();
 });
+
+// Alternative: Simple confirm-based delete (fallback)
+function simpleDelete(reportId, childName) {
+    console.log('Simple delete called for:', reportId, childName);
+    
+    if (confirm(`Are you sure you want to permanently delete the case for ${childName}? This action cannot be undone.`)) {
+        console.log('User confirmed deletion');
+        
+        // Create a form and submit it
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = `/admin/delete_case/${reportId}`;
+        document.body.appendChild(form);
+        form.submit();
+    }
+}
 
 // Bulk operations
 function toggleSelectAll() {
@@ -261,4 +311,27 @@ function bulkDeleteSelected() {
     bulkModal.show();
 }
 </script>
+
+<style>
+/* Force higher z-index and pointer events */
+.delete-case-link {
+    pointer-events: auto !important;
+    z-index: 999999 !important;
+    position: relative !important;
+}
+
+.btn-group {
+    position: relative !important;
+    z-index: 10 !important;
+}
+
+/* Ensure no overlays are blocking */
+.table-responsive {
+    overflow: visible !important;
+}
+
+.card-body {
+    overflow: visible !important;
+}
+</style>
 {% endblock %}
