@@ -22,4 +22,4 @@ Werkzeug==2.3.7
 Flask-WTF==1.1.1
 WTForms==3.0.1
 Pillow==10.4.0
-
+twilio==8.10.0
