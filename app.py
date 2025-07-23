@@ -730,3 +730,12 @@ def create_tables():
 if __name__ == '__main__':
     create_tables()
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)), debug=app.config['DEBUG'])
+# For Gunicorn
+if __name__ != '__main__':
+    # Production mode with Gunicorn
+    create_tables()
+
+if __name__ == '__main__':
+    # Development mode
+    create_tables()
+    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)), debug=app.config['DEBUG'])
