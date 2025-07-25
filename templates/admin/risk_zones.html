@@ -1,0 +1,72 @@
+// Initialize risk zones map
+document.addEventListener('DOMContentLoaded', function() {
+    const map = L.map('riskZoneMap').setView([28.6139, 77.2090], 6); // Center on Delhi, India
+    
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors'
+    }).addTo(map);
+    
+    // Add risk zones to map
+    {% for zone in risk_zones %}
+    {% set risk_color = 'red' if zone.risk_score > 70 else 'orange' if zone.risk_score >= 40 else 'green' %}
+    const zone{{ loop.index }} = L.circle([{{ zone.latitude }}, {{ zone.longitude }}], {
+        color: '{{ risk_color }}',
+        fillColor: '{{ risk_color }}',
+        fillOpacity: 0.3,
+        radius: {{ zone.radius_km * 1000 }}
+    }).addTo(map);
+    
+    zone{{ loop.index }}.bindPopup(
+        '<strong>{{ zone.zone_name }}</strong><br>' +
+        'Risk Score: {{ "%.1f"|format(zone.risk_score) }}<br>' +
+        'Incidents: {{ zone.incident_count }}<br>' +
+        'Radius: {{ zone.radius_km }} km'
+    );
+    {% endfor %}
+    
+    // Add recent cases to map
+    {% for case in cases %}
+    {% if case.last_seen_lat and case.last_seen_lng %}
+    {% set marker_color = 'red' if case.status == 'missing' else 'green' %}
+    L.marker([{{ case.last_seen_lat }}, {{ case.last_seen_lng }}], {
+        icon: L.icon({
+            iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-{{ marker_color }}.png',
+            shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+            iconSize: [25, 41],
+            iconAnchor: [12, 41],
+            popupAnchor: [1, -34],
+            shadowSize: [41, 41]
+        })
+    }).addTo(map).bindPopup(
+        '<strong>{{ case.name|e }}</strong><br>' +
+        'Age: {{ case.age }}<br>' +
+        'Status: {{ case.status.title() }}<br>' +
+        'Last seen: {{ case.last_seen_location|e }}'
+    );
+    {% endif %}
+    {% endfor %}
+    
+    // Fit map to show all markers if there are any
+    {% if risk_zones or cases %}
+    setTimeout(function() {
+        map.invalidateSize();
+    }, 100);
+    {% endif %}
+});
+
+function viewZoneOnMap(lat, lng, zoneName) {
+    // Focus map on specific zone
+    const map = L.DomUtil.get('riskZoneMap')._leaflet_map;
+    if (map) {
+        map.setView([lat, lng], 12);
+    }
+}
+
+function toggleZoneStatus(zoneId, status) {
+    // Toggle zone active/inactive status
+    if (confirm('Are you sure you want to ' + (status ? 'activate' : 'deactivate') + ' this risk zone?')) {
+        // Add AJAX call here to update zone status
+        console.log('Toggle zone', zoneId, 'to', status);
+        location.reload();
+    }
+}

@@ -1,0 +1,205 @@
+{% extends "base.html" %}
+
+{% block title %}Analytics Dashboard{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>Analytics Dashboard</h2>
+    <div>
+        <a href="{{ url_for('admin_dashboard') }}" class="btn btn-secondary">Back to Dashboard</a>
+        <a href="{{ url_for('update_analytics') }}" class="btn btn-primary">
+            <i class="fas fa-sync me-1"></i>Update Analytics
+        </a>
+    </div>
+</div>
+
+<!-- Key Metrics Cards -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card text-white bg-danger">
+            <div class="card-body">
+                <h5 class="card-title">High Risk Zones</h5>
+                <h3>{{ zones|length }}</h3>
+                <small>Identified hotspots</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-white bg-warning">
+            <div class="card-body">
+                <h5 class="card-title">Recovery Rate</h5>
+                <h3>{{ "%.1f"|format(patterns.recovery_rates.overall or 0) }}%</h3>
+                <small>Overall success rate</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-white bg-info">
+            <div class="card-body">
+                <h5 class="card-title">Most Vulnerable</h5>
+                <h3>
+                    {% if patterns.age_groups %}
+                        {{ patterns.age_groups.most_common(1)[0][0] if patterns.age_groups.most_common(1) else 'N/A' }}
+                    {% else %}
+                        N/A
+                    {% endif %}
+                </h3>
+                <small>Age group at risk</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-white bg-success">
+            <div class="card-body">
+                <h5 class="card-title">Peak Time</h5>
+                <h3>
+                    {% if patterns.time_patterns %}
+                        {{ patterns.time_patterns.most_common(1)[0][0].split('(')[0] if patterns.time_patterns.most_common(1) else 'N/A' }}
+                    {% else %}
+                        N/A
+                    {% endif %}
+                </h3>
+                <small>Most incidents</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Insights Card -->
+<div class="card mb-4">
+    <div class="card-header bg-primary text-white">
+        <h5 class="mb-0">
+            <i class="fas fa-lightbulb me-2"></i>Key Insights
+        </h5>
+    </div>
+    <div class="card-body">
+        {% if insights %}
+            {% for insight in insights %}
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle me-2"></i>{{ insight }}
+            </div>
+            {% endfor %}
+        {% else %}
+            <p class="text-muted">No insights available. Add more case data to generate insights.</p>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Demographics Analysis -->
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h6>Age Group Distribution</h6>
+            </div>
+            <div class="card-body">
+                {% if patterns.age_groups %}
+                    {% for group, count in patterns.age_groups.items() %}
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span>{{ group }}</span>
+                        <span class="badge bg-primary">{{ count }} cases</span>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <p class="text-muted">No age group data available</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h6>Gender Distribution</h6>
+            </div>
+            <div class="card-body">
+                {% if patterns.gender_distribution %}
+                    {% for gender, count in patterns.gender_distribution.items() %}
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span>{{ gender.title() }}</span>
+                        <span class="badge bg-secondary">{{ count }} cases</span>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <p class="text-muted">No gender distribution data available</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Time and Location Patterns -->
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h6>Time Patterns</h6>
+            </div>
+            <div class="card-body">
+                {% if patterns.time_patterns %}
+                    {% for time_period, count in patterns.time_patterns.items() %}
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span>{{ time_period }}</span>
+                        <span class="badge bg-warning text-dark">{{ count }} incidents</span>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <p class="text-muted">No time pattern data available</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h6>Location Types</h6>
+            </div>
+            <div class="card-body">
+                {% if patterns.location_types %}
+                    {% for loc_type, count in patterns.location_types.items() %}
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span>{{ loc_type }}</span>
+                        <span class="badge bg-info">{{ count }} cases</span>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <p class="text-muted">No location type data available</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recovery Rates -->
+{% if patterns.recovery_rates and patterns.recovery_rates.by_age %}
+<div class="card">
+    <div class="card-header">
+        <h6>Recovery Rates by Age Group</h6>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            {% for age_group, rate in patterns.recovery_rates.by_age.items() %}
+            <div class="col-md-3 mb-3">
+                <div class="text-center p-3 border rounded">
+                    <h5 class="text-{{ 'success' if rate > 70 else 'warning' if rate > 40 else 'danger' }}">
+                        {{ "%.1f"|format(rate) }}%
+                    </h5>
+                    <small class="text-muted">{{ age_group }}</small>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Auto-refresh analytics every 5 minutes
+setInterval(function() {
+    location.reload();
+}, 300000);
+</script>
+{% endblock %}
