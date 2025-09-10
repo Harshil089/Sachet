@@ -23,9 +23,15 @@ from config import Config
 app = Flask(__name__)
 app.config.from_object(Config)
 
+# Get the base directory
+basedir = os.path.abspath(os.path.dirname(__file__))
+
 # Ensure upload directories exist for local development
 os.makedirs(os.path.join(app.config['UPLOAD_FOLDER'], 'photos'), exist_ok=True)
 os.makedirs(os.path.join(app.config['UPLOAD_FOLDER'], 'audio'), exist_ok=True)
+
+# Create error templates directory
+os.makedirs(os.path.join(basedir, 'templates', 'errors'), exist_ok=True)
 
 # Initialize extensions
 db = SQLAlchemy(app)
@@ -144,6 +150,39 @@ def upload_to_cloudinary(file, folder, public_id):
         return result['secure_url']
     except Exception as e:
         print(f"Cloudinary upload error: {str(e)}")
+        return None
+
+def save_file_locally(file, folder, filename):
+    """Save file to local storage with proper organization"""
+    try:
+        # Create folder if it doesn't exist
+        folder_path = os.path.join(app.config['UPLOAD_FOLDER'], folder)
+        os.makedirs(folder_path, exist_ok=True)
+        
+        # Generate unique filename
+        file_path = os.path.join(folder_path, filename)
+        
+        # Save file
+        file.save(file_path)
+        
+        # For images, optimize them
+        if folder == 'photos' and file.filename.lower().endswith(('.png', '.jpg', '.jpeg', '.gif')):
+            try:
+                with Image.open(file_path) as img:
+                    # Convert to RGB if necessary
+                    if img.mode in ('RGBA', 'LA', 'P'):
+                        img = img.convert('RGB')
+                    
+                    # Resize if too large
+                    img.thumbnail((800, 800), Image.Resampling.LANCZOS)
+                    img.save(file_path, 'JPEG', quality=85, optimize=True)
+            except Exception as img_error:
+                print(f"Image optimization error: {str(img_error)}")
+        
+        # Return just the filename for static file access
+        return filename
+    except Exception as e:
+        print(f"Local file save error: {str(e)}")
         return None
 
 def upload_audio_to_cloudinary(file, public_id):
@@ -649,16 +688,13 @@ def report_missing():
                     else:
                         flash('Photo upload failed, but report was created successfully', 'warning')
                 else:
-                    # Fallback to local storage (development)
+                    # Use improved local storage
                     photo_filename = secure_filename(f"{report_id}_{photo.filename}")
-                    photo_path = os.path.join(app.config['UPLOAD_FOLDER'], 'photos', photo_filename)
-                    photo.save(photo_path)
-                    
-                    with Image.open(photo_path) as img:
-                        img.thumbnail((800, 800))
-                        img.save(photo_path)
-                    
-                    photo_url = f"uploads/photos/{photo_filename}"
+                    photo_url = save_file_locally(photo, 'photos', photo_filename)
+                    if photo_url:
+                        print(f"✅ Photo saved locally: {photo_url}")
+                    else:
+                        flash('Photo upload failed, but report was created successfully', 'warning')
         
         # Handle audio upload
         if 'audio' in request.files:
@@ -675,12 +711,13 @@ def report_missing():
                     else:
                         flash('Audio upload failed, but report was created successfully', 'warning')
                 else:
-                    # Fallback to local storage (development)
+                    # Use improved local storage
                     audio_filename = secure_filename(f"{report_id}_{audio.filename}")
-                    audio_path = os.path.join(app.config['UPLOAD_FOLDER'], 'audio', audio_filename)
-                    audio.save(audio_path)
-                    
-                    audio_url = f"uploads/audio/{audio_filename}"
+                    audio_url = save_file_locally(audio, 'audio', audio_filename)
+                    if audio_url:
+                        print(f"✅ Audio saved locally: {audio_url}")
+                    else:
+                        flash('Audio upload failed, but report was created successfully', 'warning')
         
         # Create missing child record with URLs instead of filenames
         missing_child = MissingChild(

@@ -10,25 +10,13 @@ if not os.environ.get('RENDER'):
 class Config:
     SECRET_KEY = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
     
-    # Database Configuration
-    DATABASE_URL = os.environ.get('DATABASE_URL')
-    
-    if DATABASE_URL:
-        # Handle both postgres:// and postgresql:// formats
-        if DATABASE_URL.startswith('postgres://'):
-            DATABASE_URL = DATABASE_URL.replace('postgres://', 'postgresql://', 1)
-        SQLALCHEMY_DATABASE_URI = DATABASE_URL
-        print(f"✅ Using PostgreSQL database")
-    else:
-        # Fallback to SQLite for local development
-        SQLALCHEMY_DATABASE_URI = 'sqlite:///' + os.path.join(basedir, 'missing_children.db')
-        print(f"⚠️  Using SQLite database (development only)")
+    # Database Configuration - Force SQLite for compatibility
+    SQLALCHEMY_DATABASE_URI = 'sqlite:///' + os.path.join(basedir, 'missing_children.db')
+    print(f"✅ Using SQLite database (compatible storage)")
     
     SQLALCHEMY_TRACK_MODIFICATIONS = False
-    SQLALCHEMY_ENGINE_OPTIONS = {
-        'pool_recycle': 300,
-        'pool_pre_ping': True,
-    }
+    # SQLite doesn't need connection pooling options
+    SQLALCHEMY_ENGINE_OPTIONS = {}
     
     # Cloudinary Configuration
     CLOUDINARY_CLOUD_NAME = os.environ.get('CLOUDINARY_CLOUD_NAME')

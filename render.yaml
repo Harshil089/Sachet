@@ -1,11 +1,18 @@
 services:
   - type: web
-    name: Sachet
+    name: missing-child-alert-system
     env: python
-    runtime: python-3.11.0
+    plan: free
     buildCommand: pip install -r requirements.txt
     startCommand: gunicorn app:app
-    healthCheckPath: /health
     envVars:
+      - key: SECRET_KEY
+        generateValue: true
       - key: FLASK_ENV
         value: production
+      - key: DEBUG
+        value: false
+      - key: ADMIN_USERNAME
+        value: admin
+      - key: ADMIN_PASSWORD
+        generateValue: true
