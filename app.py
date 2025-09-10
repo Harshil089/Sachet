@@ -993,13 +993,26 @@ def create_tables():
             db.create_all()
             print("✅ Database tables created/verified")
             
+            # Create admin user if it doesn't exist
+            admin_user = User.query.filter_by(username='admin').first()
+            if not admin_user:
+                from werkzeug.security import generate_password_hash
+                admin_password = os.environ.get('ADMIN_PASSWORD', 'admin123')
+                admin_user = User(
+                    username='admin',
+                    password_hash=generate_password_hash(admin_password)
+                )
+                db.session.add(admin_user)
+                db.session.commit()
+                print("✅ Default admin user created")
+            
             # Check if we have any existing data
             try:
                 case_count = MissingChild.query.count()
                 user_count = User.query.count()
-                print(f"📊 Existing  {case_count} cases, {user_count} users")
+                print(f"📊 Database ready with {case_count} cases, {user_count} users")
             except Exception as count_error:
-                print(f"⚠️ Could not count existing  {str(count_error)}")
+                print(f"⚠️ Could not count existing data: {str(count_error)}")
             
     except Exception as e:
         print(f"❌ Database connection error: {str(e)}")

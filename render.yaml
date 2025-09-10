@@ -16,3 +16,14 @@ services:
         value: admin
       - key: ADMIN_PASSWORD
         generateValue: true
+      - key: DATABASE_URL
+        fromDatabase:
+          name: missing-children-db
+          property: connectionString
+
+  - type: pserv
+    name: missing-children-db
+    env: postgresql
+    plan: free
+    region: oregon
+    ipAllowList: []

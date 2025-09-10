@@ -22,12 +22,24 @@
      - **Start Command**: `gunicorn app:app`
      - **Python Version**: 3.12.0
 
-3. **Environment Variables** (in Render dashboard):
+3. **Create PostgreSQL Database** (for persistent data):
+   - In Render dashboard, click "New +"
+   - Select "PostgreSQL"
+   - Choose "Free" plan
+   - Name it "missing-children-db"
+   - Note the connection string
+
+4. **Environment Variables** (in Render dashboard):
    - `SECRET_KEY`: Generate a secure random key
    - `ADMIN_USERNAME`: Set your admin username
    - `ADMIN_PASSWORD`: Set a secure password
    - `FLASK_ENV`: `production`
    - `DEBUG`: `false`
+   - `DATABASE_URL`: Copy from your PostgreSQL database
+
+5. **Automatic Database Setup**:
+   - The app will automatically create tables and admin user on first run
+   - Your data will persist across deployments!
 
 ### Option 2: Heroku
 
