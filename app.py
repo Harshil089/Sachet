@@ -175,7 +175,21 @@ def save_file_locally(file, folder, filename):
                     
                     # Resize if too large
                     img.thumbnail((800, 800), Image.Resampling.LANCZOS)
-                    img.save(file_path, 'JPEG', quality=85, optimize=True)
+
+                    # Save as optimized JPEG and update filename to .jpg
+                    base_name, _ext = os.path.splitext(filename)
+                    optimized_filename = base_name + '.jpg'
+                    optimized_path = os.path.join(folder_path, optimized_filename)
+                    img.save(optimized_path, 'JPEG', quality=85, optimize=True)
+
+                    # Remove original if different
+                    if optimized_path != file_path and os.path.exists(file_path):
+                        try:
+                            os.remove(file_path)
+                        except Exception:
+                            pass
+
+                    filename = optimized_filename
             except Exception as img_error:
                 print(f"Image optimization error: {str(img_error)}")
         
