@@ -108,6 +108,7 @@ class MissingChild(db.Model):
     description = db.Column(db.Text, nullable=False)
     photo_filename = db.Column(db.String(500))  # Increased length for URLs
     audio_filename = db.Column(db.String(500))  # Increased length for URLs
+    emergency_contact = db.Column(db.String(100))  # Emergency contact phone/email
     date_reported = db.Column(db.DateTime, default=datetime.utcnow)
     status = db.Column(db.String(20), default='missing')
     sightings = db.relationship('Sighting', backref='missing_child', lazy=True)
@@ -703,6 +704,7 @@ def report_missing():
         gender = request.form['gender']
         location = request.form['location']
         description = request.form['description']
+        emergency_contact = request.form['emergency_contact']
         
         lat, lng = get_location_coordinates(location)
         
@@ -767,7 +769,8 @@ def report_missing():
             last_seen_lng=lng,
             description=description,
             photo_filename=photo_url,
-            audio_filename=audio_url
+            audio_filename=audio_url,
+            emergency_contact=emergency_contact
         )
         
         db.session.add(missing_child)

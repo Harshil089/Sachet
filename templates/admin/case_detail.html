@@ -62,6 +62,9 @@
                 <p><strong>Last Seen:</strong> {{ child.last_seen_location }}</p>
                 <p><strong>Reported:</strong> {{ child.date_reported.strftime('%B %d, %Y at %I:%M %p') }}</p>
                 <p><strong>Description:</strong> {{ child.description }}</p>
+                {% if child.emergency_contact %}
+                <p><strong>Emergency Contact:</strong> {{ child.emergency_contact }}</p>
+                {% endif %}
                 
                 {% if child.audio_filename %}
                 <div class="mt-3">
