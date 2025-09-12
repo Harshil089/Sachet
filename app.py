@@ -1033,6 +1033,31 @@ def create_tables():
             db.create_all()
             print("✅ Database tables created/verified")
             
+            # Check for missing columns and add them
+            try:
+                with db.engine.connect() as connection:
+                    # Check if emergency_contact column exists
+                    result = connection.execute(db.text("""
+                        SELECT column_name 
+                        FROM information_schema.columns 
+                        WHERE table_name='missing_child' AND column_name='emergency_contact'
+                    """))
+                    
+                    if not result.fetchone():
+                        print("🔄 Adding emergency_contact column to missing_child table...")
+                        connection.execute(db.text("""
+                            ALTER TABLE missing_child 
+                            ADD COLUMN emergency_contact VARCHAR(100)
+                        """))
+                        connection.commit()
+                        print("✅ emergency_contact column added successfully")
+                    else:
+                        print("✅ emergency_contact column already exists")
+                        
+            except Exception as migration_error:
+                print(f"⚠️ Migration error: {str(migration_error)}")
+                # Continue anyway - the column might exist or be added later
+            
             # Create admin user if it doesn't exist
             admin_user = User.query.filter_by(username='admin').first()
             if not admin_user:
