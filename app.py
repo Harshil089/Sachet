@@ -41,6 +41,19 @@ login_manager.login_view = 'admin_login'
 
 # Initialize Cloudinary
 def init_cloudinary():
+    # Prefer single-URL configuration if provided (e.g., CLOUDINARY_URL=cloudinary://api_key:api_secret@cloud_name)
+    cloudinary_url_env = os.environ.get('CLOUDINARY_URL')
+    if cloudinary_url_env:
+        try:
+            cloudinary.config(
+                cloudinary_url=cloudinary_url_env,
+                secure=True
+            )
+            print("✅ Cloudinary configured via CLOUDINARY_URL")
+            return True
+        except Exception as e:
+            print(f"⚠️ Failed to configure Cloudinary via CLOUDINARY_URL: {str(e)}")
+
     cloud_name = app.config.get('CLOUDINARY_CLOUD_NAME')
     api_key = app.config.get('CLOUDINARY_API_KEY')
     api_secret = app.config.get('CLOUDINARY_API_SECRET')
