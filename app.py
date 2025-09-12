@@ -41,17 +41,27 @@ login_manager.login_view = 'admin_login'
 
 # Initialize Cloudinary
 def init_cloudinary():
-    if app.config.get('CLOUDINARY_CLOUD_NAME'):
+    cloud_name = app.config.get('CLOUDINARY_CLOUD_NAME')
+    api_key = app.config.get('CLOUDINARY_API_KEY')
+    api_secret = app.config.get('CLOUDINARY_API_SECRET')
+    if cloud_name and api_key and api_secret:
         cloudinary.config(
-            cloud_name=app.config['CLOUDINARY_CLOUD_NAME'],
-            api_key=app.config['CLOUDINARY_API_KEY'],
-            api_secret=app.config['CLOUDINARY_API_SECRET'],
+            cloud_name=cloud_name,
+            api_key=api_key,
+            api_secret=api_secret,
             secure=True
         )
         print("✅ Cloudinary configured successfully")
         return True
     else:
-        print("⚠️ Cloudinary not configured - using local storage")
+        missing = []
+        if not cloud_name:
+            missing.append('CLOUDINARY_CLOUD_NAME')
+        if not api_key:
+            missing.append('CLOUDINARY_API_KEY')
+        if not api_secret:
+            missing.append('CLOUDINARY_API_SECRET')
+        print(f"⚠️ Cloudinary not fully configured (missing: {', '.join(missing)}) - using local storage")
         return False
 
 CLOUDINARY_ENABLED = init_cloudinary()
