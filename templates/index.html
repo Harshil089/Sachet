@@ -43,7 +43,7 @@
                                             <img src="{{ case.photo_filename }}" class="img-fluid missing-child-photo" alt="{{ case.name }}">
                                         {% else %}
                                             <!-- Local file -->
-                                            <img src="{{ url_for('static', filename=case.photo_filename) }}" class="img-fluid missing-child-photo" alt="{{ case.name }}">
+                                            <img src="{{ url_for('static', filename='uploads/photos/' + case.photo_filename) }}" class="img-fluid missing-child-photo" alt="{{ case.name }}">
                                         {% endif %}
                                     {% else %}
                                     <div class="placeholder-photo">
