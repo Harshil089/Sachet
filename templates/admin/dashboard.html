@@ -52,7 +52,7 @@
     </div>
     <div class="card-body">
         <form id="bulkDeleteForm" method="POST" action="{{ url_for('bulk_delete_cases') }}">
-            <div class="table-responsive">
+            <div class="table-responsive admin-table-scroll">
                 <table class="table table-striped">
                     <thead>
                         <tr>
@@ -371,9 +371,11 @@ input[type="checkbox"] {
     z-index: 10 !important;
 }
 
-/* Ensure no overlays are blocking */
+/* Ensure responsive table scrolls horizontally on small screens */
 .table-responsive {
-    overflow: visible !important;
+    overflow-x: auto !important;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
 }
 
 .card-body {

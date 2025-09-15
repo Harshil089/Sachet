@@ -404,6 +404,11 @@ main.container {
     vertical-align: middle;
 }
 
+/* Ensure tables are wide enough to trigger horizontal scroll on mobile */
+.admin-table-scroll table {
+    min-width: 700px;
+}
+
 .table-striped > tbody > tr:nth-of-type(odd) > td {
     background: rgba(231, 76, 60, 0.02);
 }
@@ -652,7 +657,10 @@ input[type="checkbox"] {
 
 /* Ensure no overlays are blocking */
 .table-responsive {
-    overflow: visible !important;
+    overflow-x: auto !important;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    display: block;
 }
 
 .card-body {
