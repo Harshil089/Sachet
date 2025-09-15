@@ -81,7 +81,12 @@ CLOUDINARY_ENABLED = init_cloudinary()
 
 # PREDEFINED DEMO PHONE NUMBERS (Replace with your verified Twilio numbers)
 DEMO_PHONE_NUMBERS = [
-    '+919960846194',    # Replace with your verified number 1
+    '+919960846194',
+    '‭+917758926422‬',
+    '+919920846982',
+    '+919370831887',
+    '+917387350049',
+    # Replace with your verified number 1
     # Replace with your verified number 2
     # Add more verified numbers as needed
 ]
