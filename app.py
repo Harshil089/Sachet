@@ -86,10 +86,62 @@ DEMO_PHONE_NUMBERS = [
     '+919920846982',
     '+919370831887',
     '+917387350049',
-    # Replace with your verified number 1
-    # Replace with your verified number 2
-    # Add more verified numbers as needed
 ]
+
+# Area-wise keyword filters and number routing
+# Keys are canonical area ids, values are keyword lists to match in free-text locations
+AREA_KEYWORDS = {
+    'magarpatta': ['magarpatta'],
+    'mit_loni': ['mit loni', 'loni', 'mit'],
+    'pcmc': ['pcmc', 'pimpri', 'chinchwad', 'pimpri-chinchwad'],
+    'koregaon_park': ['koregaon park', 'kp'],
+    'seasons_mall': ["season's mall", 'seasons mall', 'season mall', 'seasons'],
+    'pune_airport': ['pune airport', 'lohegaon', 'lohgaon', 'pnq']
+}
+
+# Assign one phone number per area in declaration order using DEMO_PHONE_NUMBERS
+def build_area_number_mapping():
+    area_ids = list(AREA_KEYWORDS.keys())
+    mapping = {}
+    for idx, area_id in enumerate(area_ids):
+        try:
+            mapping[area_id] = DEMO_PHONE_NUMBERS[idx]
+        except IndexError:
+            # Fallback: if fewer numbers than areas, reuse the first number
+            mapping[area_id] = DEMO_PHONE_NUMBERS[0] if DEMO_PHONE_NUMBERS else None
+    return mapping
+
+AREA_TO_NUMBER = build_area_number_mapping()
+
+def select_numbers_for_location(location_text):
+    """Return a list of phone numbers to alert based on free-text location.
+
+    Matching is case-insensitive and uses simple substring checks against
+    configured AREA_KEYWORDS. If multiple areas match, all corresponding
+    numbers are returned (de-duplicated). If none match, returns the default
+    DEMO_PHONE_NUMBERS list.
+    """
+    if not location_text:
+        return DEMO_PHONE_NUMBERS
+
+    location_lower = location_text.strip().lower()
+    selected_numbers = []
+
+    for area_id, keywords in AREA_KEYWORDS.items():
+        if any(keyword in location_lower for keyword in keywords):
+            number = AREA_TO_NUMBER.get(area_id)
+            if number:
+                selected_numbers.append(number)
+
+    # De-duplicate while preserving order
+    seen = set()
+    filtered = []
+    for n in selected_numbers:
+        if n not in seen:
+            seen.add(n)
+            filtered.append(n)
+
+    return filtered if filtered else DEMO_PHONE_NUMBERS
 
 # Initialize Twilio - only when needed
 def get_twilio_client():
@@ -325,6 +377,47 @@ def send_sms_alert(message):
     except Exception as e:
         print(f"❌ Twilio client error: {str(e)}")
     
+    return sent_count
+
+def send_sms_alert_to_numbers(message, phone_numbers):
+    """Send SMS to a specific list of numbers (area-wise routing)."""
+    if app.config['DEBUG']:
+        print(f"\n=== SMS DEBUG MODE (Targeted) ===")
+        print(f"Message: {message}")
+        print(f"Would send to: {phone_numbers}")
+        print("=== END SMS DEBUG ===\n")
+        return len(phone_numbers or [])
+
+    if not phone_numbers:
+        return 0
+
+    if not app.config.get('TWILIO_ACCOUNT_SID') or not app.config.get('TWILIO_AUTH_TOKEN'):
+        print("❌ Twilio credentials not configured")
+        return 0
+    if not app.config.get('TWILIO_PHONE_NUMBER'):
+        print("❌ Twilio phone number not configured")
+        return 0
+
+    sent_count = 0
+    try:
+        twilio_client = get_twilio_client()
+        if not twilio_client:
+            print("❌ Failed to create Twilio client")
+            return 0
+
+        for phone_number in phone_numbers:
+            try:
+                _ = twilio_client.messages.create(
+                    body=message,
+                    from_=app.config['TWILIO_PHONE_NUMBER'],
+                    to=phone_number
+                )
+                sent_count += 1
+            except Exception as e:
+                print(f"❌ Failed to send SMS to {phone_number}: {str(e)}")
+    except Exception as e:
+        print(f"❌ Twilio client error: {str(e)}")
+
     return sent_count
 
 # Analytics Functions
@@ -785,7 +878,9 @@ def report_missing():
         report_url = request.url_root + f"found/{report_id}"
         sms_message = f"MISSING: {name}, {age}yrs, {gender}, {location}. Report sightings: {report_url}"
         
-        sent_count = send_sms_alert(sms_message)
+        # Area-wise broadcasting at report time as well
+        target_numbers = select_numbers_for_location(location)
+        sent_count = send_sms_alert_to_numbers(sms_message, target_numbers)
         
         if sent_count > 0:
             flash(f'Missing child report created successfully! Report ID: {report_id}. Alert sent to {sent_count} subscribers.', 'success')
@@ -821,7 +916,9 @@ def report_found(report_id):
         
         sms_message = f"SIGHTING: {missing_child.name} spotted at {location}. Time: {datetime.now().strftime('%H:%M')}. ID: {report_id}"
         
-        sent_count = send_sms_alert(sms_message)
+        # Area-wise broadcasting: choose numbers based on location text
+        target_numbers = select_numbers_for_location(location)
+        sent_count = send_sms_alert_to_numbers(sms_message, target_numbers)
         
         flash('Thank you for reporting the sighting! Alert sent to authorities and subscribers.', 'success')
         return redirect(url_for('report_found', report_id=report_id))
@@ -899,7 +996,8 @@ def update_case_status(report_id, status):
         flash(f'Case marked as FOUND! Alert sent to {sent_count} subscribers.', 'success')
     elif status == 'missing' and old_status == 'found':
         sms_message = f"URGENT: {missing_child.name} missing again! {missing_child.last_seen_location}. ID: {report_id}"
-        sent_count = send_sms_alert(sms_message)
+        target_numbers = select_numbers_for_location(missing_child.last_seen_location)
+        sent_count = send_sms_alert_to_numbers(sms_message, target_numbers)
         flash(f'Case marked as MISSING again! Alert sent to {sent_count} subscribers.', 'warning')
     elif status == 'closed':
         sms_message = f"CLOSED: {missing_child.name} case closed. ID: {report_id}"
