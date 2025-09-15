@@ -5,25 +5,68 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h2>Case Details - {{ child.report_id }}</h2>
-    <div>
-        <!-- ADMIN CONTROLS -->
-        {% if child.status == 'missing' %}
-            <a href="{{ url_for('update_case_status', report_id=child.report_id, status='found') }}" 
-               class="btn btn-success me-2">Mark as Found</a>
-        {% endif %}
-        {% if child.status == 'found' %}
-            <a href="{{ url_for('update_case_status', report_id=child.report_id, status='missing') }}" 
-               class="btn btn-warning me-2">Mark as Missing Again</a>
-        {% endif %}
-        <!-- FIXED DELETE BUTTON -->
-        <button type="button" 
-                class="btn btn-danger me-2" 
-                id="deleteCaseBtn"
-                data-report-id="{{ child.report_id }}"
-                data-child-name="{{ child.name }}">
-            <i class="fas fa-trash me-1"></i>Delete Case
-        </button>
-        <a href="{{ url_for('admin_dashboard') }}" class="btn btn-secondary">Back to Dashboard</a>
+    <div class="admin-actions">
+        <!-- Desktop/Tablet: show full buttons -->
+        <div class="d-none d-md-flex align-items-center">
+            {% if child.status == 'missing' %}
+                <a href="{{ url_for('update_case_status', report_id=child.report_id, status='found') }}" 
+                   class="btn btn-success me-2">
+                    <i class="fas fa-check me-1"></i>Mark as Found
+                </a>
+            {% endif %}
+            {% if child.status == 'found' %}
+                <a href="{{ url_for('update_case_status', report_id=child.report_id, status='missing') }}" 
+                   class="btn btn-warning me-2">
+                    <i class="fas fa-undo me-1"></i>Mark as Missing Again
+                </a>
+            {% endif %}
+            <button type="button" 
+                    class="btn btn-danger me-2" 
+                    id="deleteCaseBtn"
+                    data-report-id="{{ child.report_id }}"
+                    data-child-name="{{ child.name }}">
+                <i class="fas fa-trash me-1"></i>Delete Case
+            </button>
+            <a href="{{ url_for('admin_dashboard') }}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left me-1"></i>Back to Admin
+            </a>
+        </div>
+
+        <!-- Mobile: compact actions dropdown -->
+        <div class="dropdown d-md-none">
+            <button class="btn btn-outline-secondary dropdown-toggle" type="button" id="adminActionsMenu" data-bs-toggle="dropdown" aria-expanded="false">
+                <i class="fas fa-ellipsis-h"></i>
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="adminActionsMenu">
+                {% if child.status == 'missing' %}
+                <li>
+                    <a class="dropdown-item" href="{{ url_for('update_case_status', report_id=child.report_id, status='found') }}">
+                        <i class="fas fa-check me-2 text-success"></i>Mark as Found
+                    </a>
+                </li>
+                {% endif %}
+                {% if child.status == 'found' %}
+                <li>
+                    <a class="dropdown-item" href="{{ url_for('update_case_status', report_id=child.report_id, status='missing') }}">
+                        <i class="fas fa-undo me-2 text-warning"></i>Mark as Missing Again
+                    </a>
+                </li>
+                {% endif %}
+                <li><hr class="dropdown-divider"></li>
+                <li>
+                    <a class="dropdown-item text-danger delete-case-link-mobile" href="#" id="deleteCaseLinkMobile"
+                       data-report-id="{{ child.report_id }}" data-child-name="{{ child.name }}">
+                        <i class="fas fa-trash me-2"></i>Delete Case
+                    </a>
+                </li>
+                <li><hr class="dropdown-divider"></li>
+                <li>
+                    <a class="dropdown-item" href="{{ url_for('admin_dashboard') }}">
+                        <i class="fas fa-arrow-left me-2"></i>Back to Admin
+                    </a>
+                </li>
+            </ul>
+        </div>
     </div>
 </div>
 
@@ -218,6 +261,25 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('deleteForm').action = `/admin/delete_case/${reportId}`;
             
             // Show modal
+            const deleteModal = new bootstrap.Modal(document.getElementById('deleteModal'));
+            deleteModal.show();
+        });
+    }
+
+    // Mobile delete link inside dropdown
+    const mobileDeleteLink = document.getElementById('deleteCaseLinkMobile');
+    if (mobileDeleteLink) {
+        mobileDeleteLink.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+
+            const reportId = this.getAttribute('data-report-id');
+            const childName = this.getAttribute('data-child-name');
+
+            document.getElementById('deleteCaseName').textContent = childName;
+            document.getElementById('deleteCaseId').textContent = reportId;
+            document.getElementById('deleteForm').action = `/admin/delete_case/${reportId}`;
+
             const deleteModal = new bootstrap.Modal(document.getElementById('deleteModal'));
             deleteModal.show();
         });
