@@ -914,7 +914,12 @@ def report_found(report_id):
         db.session.add(sighting)
         db.session.commit()
         
-        sms_message = f"SIGHTING: {missing_child.name} spotted at {location}. Time: {datetime.now().strftime('%H:%M')}. ID: {report_id}"
+        report_url = request.url_root + f"found/{report_id}"
+        sms_message = (
+            f"SIGHTING: {missing_child.name} spotted at {location}. "
+            f"Time: {datetime.now().strftime('%H:%M')}. ID: {report_id}. "
+            f"Report/updates: {report_url}"
+        )
         
         # Area-wise broadcasting: choose numbers based on location text
         target_numbers = select_numbers_for_location(location)
