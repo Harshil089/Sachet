@@ -232,6 +232,7 @@ class MissingChild(db.Model):
     age = db.Column(db.Integer, nullable=False)
     gender = db.Column(db.String(20), nullable=False)
     last_seen_location = db.Column(db.String(200), nullable=False)
+    location_subcategory = db.Column(db.String(200))
     last_seen_lat = db.Column(db.Float)
     last_seen_lng = db.Column(db.Float)
     description = db.Column(db.Text, nullable=False)
@@ -874,6 +875,7 @@ def report_missing():
         age = request.form['age']
         gender = request.form['gender']
         location = request.form['location']
+        location_subcategory = request.form.get('location_subcategory', '').strip() or None
         description = request.form['description']
         emergency_contact = request.form['emergency_contact']
         
@@ -936,6 +938,7 @@ def report_missing():
             age=age,
             gender=gender,
             last_seen_location=location,
+            location_subcategory=location_subcategory,
             last_seen_lat=lat,
             last_seen_lng=lng,
             description=description,
@@ -1289,6 +1292,23 @@ def create_tables():
                         print("✅ photo_filename column added successfully")
                     else:
                         print("✅ photo_filename column already exists on sighting")
+                    
+                    # Check if location_subcategory exists on missing_child
+                    result3 = connection.execute(db.text("""
+                        SELECT column_name 
+                        FROM information_schema.columns 
+                        WHERE table_name='missing_child' AND column_name='location_subcategory'
+                    """))
+                    if not result3.fetchone():
+                        print("🔄 Adding location_subcategory column to missing_child table...")
+                        connection.execute(db.text("""
+                            ALTER TABLE missing_child 
+                            ADD COLUMN location_subcategory VARCHAR(200)
+                        """))
+                        connection.commit()
+                        print("✅ location_subcategory column added successfully")
+                    else:
+                        print("✅ location_subcategory column already exists on missing_child")
                         
             except Exception as migration_error:
                 print(f"⚠️ Migration error: {str(migration_error)}")
