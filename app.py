@@ -39,6 +39,43 @@ login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'admin_login'
 
+# In-memory tracking for failed admin login attempts and lockouts
+FAILED_ADMIN_LOGINS = {}
+
+def _get_client_ip():
+    try:
+        # Respect common proxy headers if present
+        forwarded_for = request.headers.get('X-Forwarded-For', '')
+        if forwarded_for:
+            return forwarded_for.split(',')[0].strip()
+    except Exception:
+        pass
+    return request.remote_addr or 'unknown'
+
+def _is_locked_out(key: str) -> bool:
+    record = FAILED_ADMIN_LOGINS.get(key)
+    if not record:
+        return False
+    lock_until = record.get('lock_until')
+    if lock_until and datetime.utcnow() < lock_until:
+        return True
+    # Expire lock if past time
+    if lock_until and datetime.utcnow() >= lock_until:
+        FAILED_ADMIN_LOGINS.pop(key, None)
+    return False
+
+def _register_failed_attempt(key: str):
+    settings_max = app.config.get('ADMIN_MAX_FAILED_ATTEMPTS', 5)
+    lock_minutes = app.config.get('ADMIN_LOCKOUT_MINUTES', 15)
+    record = FAILED_ADMIN_LOGINS.get(key, {'count': 0, 'lock_until': None})
+    record['count'] = record.get('count', 0) + 1
+    if record['count'] >= int(settings_max):
+        record['lock_until'] = datetime.utcnow() + timedelta(minutes=int(lock_minutes))
+    FAILED_ADMIN_LOGINS[key] = record
+
+def _reset_failed_attempts(key: str):
+    FAILED_ADMIN_LOGINS.pop(key, None)
+
 # Initialize Cloudinary
 def init_cloudinary():
     # Prefer single-URL configuration if provided (e.g., CLOUDINARY_URL=cloudinary://api_key:api_secret@cloud_name)
@@ -956,11 +993,29 @@ def case_detail(report_id):
 
 @app.route('/admin/login', methods=['GET', 'POST'])
 def admin_login():
+    # Obfuscation: require a valid access token hint via query/header to render login
+    required_token = app.config.get('ADMIN_ACCESS_TOKEN')
+    provided_token = request.args.get('t') or request.headers.get('X-Admin-Token')
+    if required_token and provided_token != required_token:
+        # Return 404 to avoid revealing admin endpoint
+        return render_template('errors/404.html'), 404
+
+    client_key = f"ip:{_get_client_ip()}"
+    if _is_locked_out(client_key):
+        flash('Too many attempts. Try again later.', 'error')
+        return render_template('admin/login.html'), 429
+
     if request.method == 'POST':
         username = request.form['username']
         password = request.form['password']
-        
-        if username == app.config['ADMIN_USERNAME'] and password == app.config['ADMIN_PASSWORD']:
+
+        is_valid = (
+            username == app.config['ADMIN_USERNAME'] and
+            password == app.config['ADMIN_PASSWORD']
+        )
+
+        if is_valid:
+            _reset_failed_attempts(client_key)
             user = User.query.filter_by(username=username).first()
             if not user:
                 user = User(username=username, password_hash=generate_password_hash(password))
@@ -969,8 +1024,10 @@ def admin_login():
             login_user(user)
             return redirect(url_for('admin_dashboard'))
         else:
+            _register_failed_attempt(client_key)
+            # Generic error message
             flash('Invalid credentials', 'error')
-    
+
     return render_template('admin/login.html')
 
 @app.route('/admin/dashboard')
@@ -986,6 +1043,8 @@ def admin_dashboard():
                          total_cases=total_cases,
                          active_cases=active_cases,
                          found_cases=found_cases)
+
+# Optionally return 404 for unauthorized access to admin routes (already protected by @login_required).
 
 @app.route('/admin/case/<report_id>')
 @login_required
