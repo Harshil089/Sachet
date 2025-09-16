@@ -87,11 +87,12 @@ def handle_unauthorized():
 def enforce_admin_scope_logout_on_public_pages():
     try:
         path = request.path or ''
-        # If logged in and navigating to any non-admin route, immediately log out
-        if current_user.is_authenticated and not path.startswith('/admin'):
-            logout_user()
-            # Continue to requested public page as logged-out user
-            return None
+        # If logged in and navigating explicitly to the public home page, log out
+        if current_user.is_authenticated:
+            # Consider both root path and the named endpoint for index
+            if path == '/' or request.endpoint == 'index':
+                logout_user()
+                return None
     except Exception:
         # Fail closed is not necessary here; allow request to proceed
         return None
