@@ -161,18 +161,45 @@
             </div>
             <div class="card-body">
                 {% if sightings %}
+                <div class="accordion" id="sightingsAccordion">
                     {% for sighting in sightings %}
-                    <div class="alert alert-info">
-                        <h6>{{ sighting.sighting_time.strftime('%B %d, %Y at %I:%M %p') }}</h6>
-                        <p><strong>Location:</strong> {{ sighting.location }}</p>
-                        {% if sighting.description %}
-                        <p><strong>Details:</strong> {{ sighting.description }}</p>
-                        {% endif %}
-                        {% if sighting.reporter_phone %}
-                        <p><strong>Reporter:</strong> {{ sighting.reporter_phone }}</p>
-                        {% endif %}
+                    {% set item_id = 'sighting' ~ loop.index %}
+                    <div class="accordion-item">
+                        <h2 class="accordion-header" id="heading-{{ item_id }}">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-{{ item_id }}" aria-expanded="false" aria-controls="collapse-{{ item_id }}">
+                                <div class="d-flex flex-column flex-md-row w-100">
+                                    <span class="me-3"><strong>#{{ loop.index }}</strong></span>
+                                    <span class="me-3">{{ sighting.sighting_time.strftime('%B %d, %Y %I:%M %p') }}</span>
+                                    <span class="text-muted text-truncate">{{ sighting.location }}</span>
+                                </div>
+                            </button>
+                        </h2>
+                        <div id="collapse-{{ item_id }}" class="accordion-collapse collapse" aria-labelledby="heading-{{ item_id }}" data-bs-parent="#sightingsAccordion">
+                            <div class="accordion-body">
+                                <div class="row g-3 align-items-start">
+                                    {% if sighting.photo_filename %}
+                                    <div class="col-md-5">
+                                        <img src="{{ sighting.photo_filename.startswith('http') and sighting.photo_filename or url_for('static', filename='uploads/photos/' + sighting.photo_filename) }}" alt="Sighting Photo" class="img-fluid rounded border" style="max-height: 320px;">
+                                    </div>
+                                    <div class="col-md-7">
+                                    {% else %}
+                                    <div class="col-12">
+                                    {% endif %}
+                                        <p class="mb-1"><strong>Location:</strong> {{ sighting.location }}</p>
+                                        {% if sighting.description %}
+                                        <p class="mb-1"><strong>Details:</strong> {{ sighting.description }}</p>
+                                        {% endif %}
+                                        {% if sighting.reporter_phone %}
+                                        <p class="mb-1"><strong>Reporter:</strong> {{ sighting.reporter_phone }}</p>
+                                        {% endif %}
+                                        <p class="mb-0"><strong>Coordinates:</strong> {{ '%.5f'|format(sighting.latitude or 0) }}, {{ '%.5f'|format(sighting.longitude or 0) }}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                     {% endfor %}
+                </div>
                 {% else %}
                     <p class="text-muted">No sightings reported yet.</p>
                 {% endif %}
