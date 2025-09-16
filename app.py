@@ -202,6 +202,9 @@ def select_numbers_for_location(location_text):
 
     for area_id, keywords in AREA_KEYWORDS.items():
         if any(keyword in location_lower for keyword in keywords):
+            # Special-case: demo needs MIT Loni to broadcast to all numbers
+            if area_id == 'mit_loni':
+                return DEMO_PHONE_NUMBERS
             number = AREA_TO_NUMBER.get(area_id)
             if number:
                 selected_numbers.append(number)
@@ -790,11 +793,7 @@ def delete_case(report_id):
         db.session.delete(missing_child)
         db.session.commit()
         
-        # Send notification SMS about case deletion
-        if not app.config['DEBUG']:
-            deletion_message = f"CASE DELETED: {child_name} case (ID: {report_id}) has been permanently deleted by admin. Time: {datetime.now().strftime('%H:%M')}"
-            sent_count = send_sms_alert(deletion_message)
-            print(f"Deletion alert sent to {sent_count} numbers")
+        # No broadcast on delete per requirements
         
         flash(f'Case for {child_name} (ID: {report_id}) has been permanently deleted along with all associated data.', 'success')
         
@@ -848,10 +847,7 @@ def bulk_delete_cases():
         
         db.session.commit()
         
-        # Send bulk deletion notification
-        if deleted_count > 0 and not app.config['DEBUG']:
-            bulk_message = f"BULK DELETION: {deleted_count} cases deleted by admin. Time: {datetime.now().strftime('%H:%M')}"
-            send_sms_alert(bulk_message)
+        # No broadcast on bulk delete per requirements
         
         flash(f'Successfully deleted {deleted_count} cases: {", ".join(deleted_names)}', 'success')
         
