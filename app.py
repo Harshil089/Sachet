@@ -76,6 +76,27 @@ def _register_failed_attempt(key: str):
 def _reset_failed_attempts(key: str):
     FAILED_ADMIN_LOGINS.pop(key, None)
 
+# Return 404 instead of redirect when unauthorized, to hide admin routes
+@login_manager.unauthorized_handler
+def handle_unauthorized():
+    if request.path.startswith('/admin'):
+        return render_template('errors/404.html'), 404
+    return render_template('errors/404.html'), 404
+
+@app.before_request
+def guard_admin_routes():
+    try:
+        path = request.path or ''
+        if path.startswith('/admin'):
+            # Allow reaching the login endpoint (token gate will still apply inside)
+            if request.endpoint == 'admin_login':
+                return None
+            if not current_user.is_authenticated:
+                return render_template('errors/404.html'), 404
+    except Exception:
+        # On any error, fail closed
+        return render_template('errors/404.html'), 404
+
 # Initialize Cloudinary
 def init_cloudinary():
     # Prefer single-URL configuration if provided (e.g., CLOUDINARY_URL=cloudinary://api_key:api_secret@cloud_name)
