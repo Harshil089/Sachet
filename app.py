@@ -84,6 +84,19 @@ def handle_unauthorized():
     return render_template('errors/404.html'), 404
 
 @app.before_request
+def enforce_admin_scope_logout_on_public_pages():
+    try:
+        path = request.path or ''
+        # If logged in and navigating to any non-admin route, immediately log out
+        if current_user.is_authenticated and not path.startswith('/admin'):
+            logout_user()
+            # Continue to requested public page as logged-out user
+            return None
+    except Exception:
+        # Fail closed is not necessary here; allow request to proceed
+        return None
+
+@app.before_request
 def guard_admin_routes():
     try:
         path = request.path or ''
