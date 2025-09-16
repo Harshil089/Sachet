@@ -69,9 +69,14 @@
                 <form method="POST" id="sightingForm">
                     <div class="mb-3">
                         <label for="location" class="form-label">Sighting Location *</label>
-                        <input type="text" class="form-control" id="location" name="location" required
-                               placeholder="Where did you see this child?">
-                        <div class="form-text">Start typing to see location suggestions</div>
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="location" name="location" required
+                                   placeholder="Where did you see this child?">
+                            <button class="btn btn-outline-secondary" type="button" id="useMyLocationBtn" title="Use my current location">
+                                <i class="fas fa-location-arrow"></i>
+                            </button>
+                        </div>
+                        <div class="form-text">Start typing to see location suggestions or use your current location</div>
                         <div id="map" style="height: 300px; margin-top: 10px;" class="d-none"></div>
                         <div id="location-status" class="mt-2"></div>
                     </div>
@@ -132,6 +137,39 @@ document.getElementById('location').addEventListener('input', function() {
         this.style.backgroundColor = '';
         this.style.borderColor = '';
     }
+});
+
+// Use my current location
+document.getElementById('useMyLocationBtn').addEventListener('click', function() {
+    const status = document.getElementById('location-status');
+    if (!navigator.geolocation) {
+        status.innerHTML = '<small class="text-danger">Geolocation is not supported by your browser.</small>';
+        return;
+    }
+    status.innerHTML = '<small class="text-info">Fetching your location...</small>';
+    navigator.geolocation.getCurrentPosition(async function(pos) {
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        try {
+            // Reverse geocode via Nominatim
+            const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}`;
+            const response = await fetch(url, { headers: { 'Accept': 'application/json' } });
+            const data = await response.json();
+            const displayName = data && data.display_name ? data.display_name : `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+            const input = document.getElementById('location');
+            input.value = displayName;
+            status.innerHTML = '<small class="text-success">✓ Location set from your current position</small>';
+            // Show/map the coordinates directly
+            showMap(lat, lng, displayName);
+        } catch (e) {
+            console.error('Reverse geocoding failed:', e);
+            status.innerHTML = '<small class="text-danger">Failed to reverse geocode. Using coordinates.</small>';
+            showMap(lat, lng, `${lat.toFixed(5)}, ${lng.toFixed(5)}`);
+        }
+    }, function(err) {
+        console.error('Geolocation error:', err);
+        status.innerHTML = '<small class="text-danger">Failed to get your location. Please allow permission or enter manually.</small>';
+    }, { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 });
 });
 
 function geocodeLocation(location, inputElement) {
