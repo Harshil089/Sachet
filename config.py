@@ -47,6 +47,10 @@ class Config:
     # Admin Credentials
     ADMIN_USERNAME = os.environ.get('ADMIN_USERNAME', 'admin')
     ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'admin123')
+    # Admin security
+    ADMIN_ACCESS_TOKEN = os.environ.get('ADMIN_ACCESS_TOKEN')  # optional secret to reach login
+    ADMIN_MAX_FAILED_ATTEMPTS = int(os.environ.get('ADMIN_MAX_FAILED_ATTEMPTS', '5'))
+    ADMIN_LOCKOUT_MINUTES = int(os.environ.get('ADMIN_LOCKOUT_MINUTES', '15'))
     
     # Environment
     ENV = os.environ.get('FLASK_ENV', 'production')
