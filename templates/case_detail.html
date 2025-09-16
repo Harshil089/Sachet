@@ -117,6 +117,11 @@
                     <div class="alert alert-info">
                         <h6>{{ sighting.sighting_time.strftime('%B %d, %Y at %I:%M %p') }}</h6>
                         <p><strong>Location:</strong> {{ sighting.location }}</p>
+                        {% if sighting.photo_filename %}
+                        <div class="mb-2">
+                            <img src="{{ sighting.photo_filename.startswith('http') and sighting.photo_filename or url_for('static', filename='uploads/photos/' + sighting.photo_filename) }}" alt="Sighting Photo" class="img-fluid rounded border" style="max-height: 240px;">
+                        </div>
+                        {% endif %}
                         {% if sighting.description %}
                         <p><strong>Details:</strong> {{ sighting.description }}</p>
                         {% endif %}

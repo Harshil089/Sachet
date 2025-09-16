@@ -66,7 +66,7 @@
                     </div>
                 </div>
 
-                <form method="POST" id="sightingForm">
+                <form method="POST" id="sightingForm" enctype="multipart/form-data">
                     <div class="mb-3">
                         <label for="location" class="form-label">Sighting Location *</label>
                         <div class="input-group">
@@ -85,6 +85,12 @@
                         <label for="description" class="form-label">Additional Details</label>
                         <textarea class="form-control" id="description" name="description" rows="3"
                                   placeholder="What was the child doing? Who were they with? Direction of travel..."></textarea>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="photo" class="form-label">Add Photo (Optional)</label>
+                        <input type="file" class="form-control" id="photo" name="photo" accept="image/*">
+                        <div class="form-text">A photo helps verify the sighting. Max size 16MB.</div>
                     </div>
 
                     <div class="mb-3">

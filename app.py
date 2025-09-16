@@ -179,6 +179,7 @@ class Sighting(db.Model):
     longitude = db.Column(db.Float, nullable=False)
     description = db.Column(db.Text)
     reporter_phone = db.Column(db.String(20))
+    photo_filename = db.Column(db.String(500))  # Optional photo proof for sighting
     sighting_time = db.Column(db.DateTime, default=datetime.utcnow)
 
 class User(UserMixin, db.Model):
@@ -902,6 +903,21 @@ def report_found(report_id):
         reporter_phone = request.form.get('reporter_phone', '')
         
         lat, lng = get_location_coordinates(location)
+
+        # Optional photo upload for sighting
+        sighting_photo_url = None
+        if 'photo' in request.files:
+            photo = request.files['photo']
+            if photo and photo.filename and allowed_file(photo.filename, {'png', 'jpg', 'jpeg', 'gif'}):
+                if CLOUDINARY_ENABLED:
+                    sighting_photo_url = upload_to_cloudinary(
+                        photo,
+                        'missing_children/sightings',
+                        f"{report_id}_sighting_{int(datetime.utcnow().timestamp())}"
+                    )
+                else:
+                    photo_filename = secure_filename(f"{report_id}_sighting_{photo.filename}")
+                    sighting_photo_url = save_file_locally(photo, 'photos', photo_filename)
         
         sighting = Sighting(
             report_id=report_id,
@@ -909,7 +925,8 @@ def report_found(report_id):
             latitude=lat or 0,
             longitude=lng or 0,
             description=description,
-            reporter_phone=reporter_phone
+            reporter_phone=reporter_phone,
+            photo_filename=sighting_photo_url
         )
         
         db.session.add(sighting)
@@ -1162,6 +1179,23 @@ def create_tables():
                         print("✅ emergency_contact column added successfully")
                     else:
                         print("✅ emergency_contact column already exists")
+
+                    # Check if photo_filename exists on sighting
+                    result2 = connection.execute(db.text("""
+                        SELECT column_name 
+                        FROM information_schema.columns 
+                        WHERE table_name='sighting' AND column_name='photo_filename'
+                    """))
+                    if not result2.fetchone():
+                        print("🔄 Adding photo_filename column to sighting table...")
+                        connection.execute(db.text("""
+                            ALTER TABLE sighting 
+                            ADD COLUMN photo_filename VARCHAR(500)
+                        """))
+                        connection.commit()
+                        print("✅ photo_filename column added successfully")
+                    else:
+                        print("✅ photo_filename column already exists on sighting")
                         
             except Exception as migration_error:
                 print(f"⚠️ Migration error: {str(migration_error)}")
