@@ -1067,6 +1067,8 @@ def report_found(report_id):
                 sighting.face_match_score = match_score
                 if match_score:
                     print(f"🔍 Face match score: {match_score}%")
+            except ImportError:
+                print("⚠️ Face comparison unavailable (face-recognition not installed)")
             except Exception as e:
                 print(f"⚠️ Face comparison skipped: {str(e)}")
         

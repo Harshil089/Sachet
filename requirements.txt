@@ -19,5 +19,5 @@ branca==0.8.1
 qrcode==7.4.2
 reportlab==4.0.7
 python-telegram-bot==20.7
-face-recognition==1.3.0
-dlib==19.24.6
+# face-recognition==1.3.0  # Disabled: requires CMake (not available on Render)
+# dlib==19.24.6  # Disabled: requires CMake (not available on Render)
