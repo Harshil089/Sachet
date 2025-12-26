@@ -38,9 +38,30 @@ os.makedirs(os.path.join(basedir, 'templates', 'errors'), exist_ok=True)
 
 # Initialize extensions
 db = SQLAlchemy(app)
-login_manager = LoginManager()
-login_manager.init_app(app)
+login_manager = LoginManager(app)
 login_manager.login_view = 'admin_login'
+
+# Auto-migrate database schema
+def migrate_database():
+    """Add missing columns to existing tables"""
+    with app.app_context():
+        try:
+            # Check if face_match_score column exists
+            from sqlalchemy import inspect
+            inspector = inspect(db.engine)
+            columns = [col['name'] for col in inspector.get_columns('sighting')]
+            
+            if 'face_match_score' not in columns:
+                print("⚙️ Adding face_match_score column to sighting table...")
+                db.engine.execute('ALTER TABLE sighting ADD COLUMN face_match_score FLOAT')
+                print("✅ face_match_score column added")
+            else:
+                print("✅ face_match_score column already exists")
+        except Exception as e:
+            print(f"⚠️ Migration check: {str(e)}")
+
+# Run migration
+migrate_database()
 
 # In-memory tracking for failed admin login attempts and lockouts
 FAILED_ADMIN_LOGINS = {}
@@ -468,87 +489,36 @@ def send_sms_alert(message):
         print(f"Message: {message}")
         print(f"Would send to: {DEMO_PHONE_NUMBERS}")
         print("=== END SMS DEBUG ===\n")
-        return len(DEMO_PHONE_NUMBERS)
-    
-    sent_count = 0
-    failed_numbers = []
-    
-    if not app.config.get('TWILIO_ACCOUNT_SID') or not app.config.get('TWILIO_AUTH_TOKEN'):
-        print("❌ Twilio credentials not configured")
-        return 0
-    
-    if not app.config.get('TWILIO_PHONE_NUMBER'):
-        print("❌ Twilio phone number not configured")
-        return 0
-    
-    if not DEMO_PHONE_NUMBERS:
-        print("❌ No demo phone numbers configured")
-        return 0
-    
+def send_telegram_alert(message, photo_url=None):
+    """Send alert via Telegram bot"""
     try:
-        twilio_client = get_twilio_client()
-        if not twilio_client:
-            print("❌ Failed to create Twilio client")
-            return 0
+        import asyncio
+        from telegram import Bot
         
-        for i, phone_number in enumerate(DEMO_PHONE_NUMBERS, 1):
-            try:
-                message_obj = twilio_client.messages.create(
-                    body=message,
-                    from_=app.config['TWILIO_PHONE_NUMBER'],
-                    to=phone_number
-                )
-                sent_count += 1
-                
-            except Exception as e:
-                print(f"❌ Failed to send SMS to {phone_number}: {str(e)}")
-                failed_numbers.append(phone_number)
-                
+        bot_token = app.config.get('TELEGRAM_BOT_TOKEN')
+        chat_id = app.config.get('TELEGRAM_CHAT_ID')
+        
+        if not bot_token or not chat_id:
+            print("⚠️ Telegram not configured (missing TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID)")
+            return False
+        
+        async def send_async():
+            bot = Bot(token=bot_token)
+            if photo_url:
+                await bot.send_photo(chat_id=chat_id, photo=photo_url, caption=message)
+            else:
+                await bot.send_message(chat_id=chat_id, text=message)
+        
+        asyncio.run(send_async())
+        print(f"✅ Telegram alert sent to chat {chat_id}")
+        return True
+        
+    except ImportError:
+        print("⚠️ python-telegram-bot not installed")
+        return False
     except Exception as e:
-        print(f"❌ Twilio client error: {str(e)}")
-    
-    return sent_count
-
-def send_sms_alert_to_numbers(message, phone_numbers):
-    """Send SMS to a specific list of numbers (area-wise routing)."""
-    if app.config['DEBUG']:
-        print(f"\n=== SMS DEBUG MODE (Targeted) ===")
-        print(f"Message: {message}")
-        print(f"Would send to: {phone_numbers}")
-        print("=== END SMS DEBUG ===\n")
-        return len(phone_numbers or [])
-
-    if not phone_numbers:
-        return 0
-
-    if not app.config.get('TWILIO_ACCOUNT_SID') or not app.config.get('TWILIO_AUTH_TOKEN'):
-        print("❌ Twilio credentials not configured")
-        return 0
-    if not app.config.get('TWILIO_PHONE_NUMBER'):
-        print("❌ Twilio phone number not configured")
-        return 0
-
-    sent_count = 0
-    try:
-        twilio_client = get_twilio_client()
-        if not twilio_client:
-            print("❌ Failed to create Twilio client")
-            return 0
-
-        for phone_number in phone_numbers:
-            try:
-                _ = twilio_client.messages.create(
-                    body=message,
-                    from_=app.config['TWILIO_PHONE_NUMBER'],
-                    to=phone_number
-                )
-                sent_count += 1
-            except Exception as e:
-                print(f"❌ Failed to send SMS to {phone_number}: {str(e)}")
-    except Exception as e:
-        print(f"❌ Twilio client error: {str(e)}")
-
-    return sent_count
+        print(f"❌ Telegram alert error: {str(e)}")
+        return False
 
 # Analytics Functions
 def calculate_distance(lat1, lon1, lat2, lon2):
@@ -1006,18 +976,13 @@ def report_missing():
         db.session.add(missing_child)
         db.session.commit()
         
-        # Send SMS alert
+        # Send Telegram alert
         report_url = request.url_root + f"found/{report_id}"
-        sms_message = f"MISSING: {name}, {age}yrs, {gender}, {location}. Report sightings: {report_url}"
+        alert_message = f"🚨 MISSING CHILD ALERT 🚨\n\nName: {name}\nAge: {age} years\nGender: {gender}\nLast Seen: {location}\n\nReport sightings: {report_url}"
         
-        # Area-wise broadcasting at report time as well
-        target_numbers = select_numbers_for_location(location)
-        sent_count = send_sms_alert_to_numbers(sms_message, target_numbers)
+        send_telegram_alert(alert_message, photo_url=photo_url)
         
-        if sent_count > 0:
-            flash(f'Missing child report created successfully! Report ID: {report_id}. Alert sent to {sent_count} subscribers.', 'success')
-        else:
-            flash(f'Missing child report created successfully! Report ID: {report_id}. However, SMS alerts could not be sent.', 'warning')
+        flash(f'Missing child report created successfully! Report ID: {report_id}. Alert sent via Telegram.', 'success')
         
         return redirect(url_for('case_detail', report_id=report_id))
     
@@ -1076,28 +1041,19 @@ def report_found(report_id):
         db.session.commit()
         
         report_url = request.url_root + f"found/{report_id}"
-        sms_message = (
-            f"SIGHTING: {missing_child.name} spotted at {location}. "
-            f"Time: {datetime.now().strftime('%H:%M')}. ID: {report_id}. "
-            f"Report/updates: {report_url}"
+        alert_message = (
+            f"👁️ SIGHTING REPORTED 👁️\n\n"
+            f"Child: {missing_child.name}\n"
+            f"Spotted at: {location}\n"
+            f"Time: {datetime.now().strftime('%H:%M')}\n"
+            f"Report ID: {report_id}\n\n"
+            f"Details: {report_url}"
         )
         
-        # Broadcast via all channels (SMS, Telegram, Discord)
-        try:
-            from utils.messaging import broadcast_alert
-            target_numbers = select_numbers_for_location(location)
-            broadcast_alert(
-                message=sms_message,
-                photo_url=missing_child.photo_filename,
-                sms_func=lambda msg: send_sms_alert_to_numbers(msg, target_numbers)
-            )
-        except Exception as e:
-            # Fallback to SMS only
-            print(f"⚠️ Broadcast error, using SMS only: {str(e)}")
-            target_numbers = select_numbers_for_location(location)
-            send_sms_alert_to_numbers(sms_message, target_numbers)
+        # Send Telegram alert with sighting photo if available
+        send_telegram_alert(alert_message, photo_url=sighting_photo_url)
         
-        flash('Thank you for reporting the sighting! Alert sent to authorities and subscribers.', 'success')
+        flash('Thank you for reporting the sighting! Alert sent via Telegram.', 'success')
         return redirect(url_for('report_found', report_id=report_id))
     
     return render_template('found.html', child=missing_child)
@@ -1220,18 +1176,17 @@ def update_case_status(report_id, status):
     db.session.commit()
     
     if status == 'found' and old_status == 'missing':
-        sms_message = f"FOUND: {missing_child.name} ({missing_child.age}yrs) found safe! ID: {report_id}. Thank you for helping!"
-        sent_count = send_sms_alert(sms_message)
-        flash(f'Case marked as FOUND! Alert sent to {sent_count} subscribers.', 'success')
+        telegram_message = f"✅ CASE FOUND! ✅\n\nChild: {missing_child.name} ({missing_child.age}yrs) found safe! ID: {report_id}.\n\nThank you for helping!"
+        send_telegram_alert(telegram_message)
+        flash(f'Case marked as FOUND! Alert sent via Telegram.', 'success')
     elif status == 'missing' and old_status == 'found':
-        sms_message = f"URGENT: {missing_child.name} missing again! {missing_child.last_seen_location}. ID: {report_id}"
-        target_numbers = select_numbers_for_location(missing_child.last_seen_location)
-        sent_count = send_sms_alert_to_numbers(sms_message, target_numbers)
-        flash(f'Case marked as MISSING again! Alert sent to {sent_count} subscribers.', 'warning')
+        telegram_message = f"🚨 URGENT: {missing_child.name} missing again! Last seen: {missing_child.last_seen_location}. ID: {report_id}"
+        send_telegram_alert(telegram_message)
+        flash(f'Case marked as MISSING again! Alert sent via Telegram.', 'warning')
     elif status == 'closed':
-        sms_message = f"CLOSED: {missing_child.name} case closed. ID: {report_id}"
-        sent_count = send_sms_alert(sms_message)
-        flash(f'Case closed! Alert sent to {sent_count} subscribers.', 'info')
+        telegram_message = f"✅ CASE CLOSED: {missing_child.name} case closed. ID: {report_id}"
+        send_telegram_alert(telegram_message)
+        flash(f'Case closed! Alert sent via Telegram.', 'info')
     else:
         flash(f'Case status updated to {status}', 'success')
     
@@ -1322,18 +1277,21 @@ def update_analytics():
         }), 500
 
 @app.route('/test-sms')
-def test_sms():
-    """Test route to send a sample SMS - remove in production"""
+@app.route('/test-telegram')
+@login_required
+def test_telegram():
+    """Test route to send a sample Telegram alert - remove in production"""
     if not app.config['DEBUG'] and not current_user.is_authenticated:
         return "Unauthorized", 401
     
-    test_message = f"TEST: Child Alert System working. Time: {datetime.now().strftime('%H:%M')}"
-    sent_count = send_sms_alert(test_message)
+    test_message = f"📢 TEST ALERT from Sachet at {datetime.now().strftime('%H:%M')}"
+    success = send_telegram_alert(test_message)
     
-    if sent_count > 0:
-        return f"✅ Test SMS sent to {sent_count} numbers successfully!"
+    if success:
+        flash('Test alert sent successfully via Telegram!', 'success')
     else:
-        return "❌ Test SMS failed. Check server logs for details."
+        flash('Failed to send test alert. Check Telegram configuration.', 'error')
+    return redirect(url_for('admin_dashboard'))
 
 @app.errorhandler(404)
 def not_found_error(error):
