@@ -16,6 +16,9 @@ import cloudinary
 import cloudinary.uploader
 import cloudinary.api
 from cloudinary.utils import cloudinary_url
+import threading
+import time
+from functools import lru_cache
 
 from config import Config
 
@@ -373,38 +376,117 @@ def upload_audio_to_cloudinary(file, public_id):
         print(f"Cloudinary audio upload error: {str(e)}")
         return None
 
-def get_location_coordinates(location_name):
-    """Get coordinates from location name using Nominatim API"""
-    if not location_name:
+
+# Rate limiting for Nominatim API
+_last_geocode_request = 0
+_geocode_lock = threading.Lock()
+
+def _geocode_with_google_maps(location_name):
+    """Geocode using Google Maps API (optional, requires API key)"""
+    google_api_key = app.config.get('GOOGLE_MAPS_API_KEY') or os.environ.get('GOOGLE_MAPS_API_KEY')
+    
+    if not google_api_key:
         return None, None
     
     try:
+        url = "https://maps.googleapis.com/maps/api/geocode/json"
+        params = {
+            'address': location_name,
+            'key': google_api_key
+        }
+        
+        response = requests.get(url, params=params, timeout=10)
+        response.raise_for_status()
+        data = response.json()
+        
+        if data['status'] == 'OK' and data.get('results'):
+            location = data['results'][0]['geometry']['location']
+            lat = location['lat']
+            lng = location['lng']
+            print(f"✅ Geocoded '{location_name}' to: {lat}, {lng} (Google Maps)")
+            return lat, lng
+        else:
+            print(f"⚠️ Google Maps: No results for '{location_name}' (status: {data.get('status')})")
+            return None, None
+            
+    except Exception as e:
+        print(f"❌ Google Maps geocoding error: {str(e)}")
+        return None, None
+
+def _geocode_with_nominatim(location_name):
+    """Geocode using Nominatim API with rate limiting and retry logic"""
+    global _last_geocode_request
+    
+    try:
+        # Rate limiting: ensure at least 1 second between requests
+        with _geocode_lock:
+            time_since_last = time.time() - _last_geocode_request
+            if time_since_last < 1.0:
+                time.sleep(1.0 - time_since_last)
+            _last_geocode_request = time.time()
+        
         location_encoded = location_name.strip().replace(' ', '+')
         url = f"https://nominatim.openstreetmap.org/search?format=json&q={location_encoded}&limit=1"
         
         headers = {
-            'User-Agent': 'ChildAbductionSystem/1.0 (contact@example.com)'
+            'User-Agent': 'Sachet-ChildSafety/1.0 (https://sachet.onrender.com)'
         }
         
-        response = requests.get(url, headers=headers, timeout=10)
-        response.raise_for_status()
-        data = response.json()
-        
-        if data and len(data) > 0:
-            lat = float(data[0]['lat'])
-            lng = float(data[0]['lon'])
-            if not app.config['DEBUG']:
-                print(f"Geocoded '{location_name}' to: {lat}, {lng}")
-            return lat, lng
-        else:
-            if not app.config['DEBUG']:
-                print(f"No results found for location: {location_name}")
-            return None, None
-            
+        # Retry logic with exponential backoff
+        max_retries = 2
+        for attempt in range(max_retries + 1):
+            try:
+                timeout = 15 if attempt == 0 else 20  # Increase timeout on retry
+                response = requests.get(url, headers=headers, timeout=timeout)
+                response.raise_for_status()
+                data = response.json()
+                
+                if data and len(data) > 0:
+                    lat = float(data[0]['lat'])
+                    lng = float(data[0]['lon'])
+                    print(f"✅ Geocoded '{location_name}' to: {lat}, {lng} (Nominatim)")
+                    return lat, lng
+                else:
+                    print(f"⚠️ Nominatim: No results for '{location_name}'")
+                    return None, None
+                    
+            except requests.exceptions.Timeout:
+                if attempt < max_retries:
+                    wait_time = 2 ** attempt  # Exponential backoff: 1s, 2s
+                    print(f"⏱️ Nominatim timeout for '{location_name}', retrying in {wait_time}s... (attempt {attempt + 1}/{max_retries + 1})")
+                    time.sleep(wait_time)
+                    continue
+                else:
+                    print(f"❌ Nominatim timeout for '{location_name}' after {max_retries + 1} attempts")
+                    return None, None
+                    
+            except requests.exceptions.HTTPError as e:
+                if e.response.status_code == 403:
+                    print(f"❌ Nominatim rate limit (403) for '{location_name}'")
+                    # Wait longer on 403
+                    if attempt < max_retries:
+                        time.sleep(5)
+                        continue
+                print(f"❌ Nominatim HTTP error {e.response.status_code} for '{location_name}'")
+                return None, None
+                
     except Exception as e:
-        if not app.config['DEBUG']:
-            print(f"Geocoding error for '{location_name}': {str(e)}")
+        print(f"❌ Nominatim error for '{location_name}': {str(e)}")
         return None, None
+
+@lru_cache(maxsize=100)  # Cache 100 most recent locations
+def get_location_coordinates(location_name):
+    """Get coordinates from location name using Google Maps (if configured) or Nominatim"""
+    if not location_name:
+        return None, None
+    
+    # Try Google Maps first if API key is configured (more reliable)
+    lat, lng = _geocode_with_google_maps(location_name)
+    if lat and lng:
+        return lat, lng
+    
+    # Fallback to Nominatim (free but rate-limited)
+    return _geocode_with_nominatim(location_name)
 
 def send_sms_alert(message):
     """Send SMS alerts to predefined demo phone numbers"""
