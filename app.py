@@ -157,11 +157,7 @@ CLOUDINARY_ENABLED = init_cloudinary()
 # PREDEFINED DEMO PHONE NUMBERS (Replace with your verified Twilio numbers)
 DEMO_PHONE_NUMBERS = [
     '+919960846194',
-    '‭+917758926422‬',
-    '+919920846982',
-    '+919370831887',
-    '+917387350049',
-    '+917028826639'
+    '‭+917758926422‬
 ]
 
 # Area-wise keyword filters and number routing
