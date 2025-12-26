@@ -46,19 +46,27 @@ def migrate_database():
     """Add missing columns to existing tables"""
     with app.app_context():
         try:
-            # Check if face_match_score column exists
-            from sqlalchemy import inspect
+            from sqlalchemy import inspect, text
             inspector = inspect(db.engine)
+            
+            # Check if sighting table exists
+            if 'sighting' not in inspector.get_table_names():
+                print("⚠️ Sighting table doesn't exist yet, skipping migration")
+                return
+            
             columns = [col['name'] for col in inspector.get_columns('sighting')]
             
             if 'face_match_score' not in columns:
                 print("⚙️ Adding face_match_score column to sighting table...")
-                db.engine.execute('ALTER TABLE sighting ADD COLUMN face_match_score FLOAT')
+                with db.engine.connect() as conn:
+                    conn.execute(text('ALTER TABLE sighting ADD COLUMN face_match_score FLOAT'))
+                    conn.commit()
                 print("✅ face_match_score column added")
             else:
                 print("✅ face_match_score column already exists")
         except Exception as e:
-            print(f"⚠️ Migration check: {str(e)}")
+            print(f"⚠️ Migration error: {str(e)}")
+            print("⚠️ If this persists, run migrate_db.py manually")
 
 # Run migration
 migrate_database()
