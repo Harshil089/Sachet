@@ -185,34 +185,11 @@ def build_area_number_mapping():
 AREA_TO_NUMBER = build_area_number_mapping()
 
 def select_numbers_for_location(location_text):
-    """Return a list of phone numbers to alert based on free-text location.
-
-    Matching is case-insensitive and uses simple substring checks against
-    configured AREA_KEYWORDS. If multiple areas match, all corresponding
-    numbers are returned (de-duplicated). If none match, returns the default
-    DEMO_PHONE_NUMBERS list.
+    """Return all phone numbers to alert for any location.
+    
+    All numbers in DEMO_PHONE_NUMBERS will receive alerts regardless of location.
     """
-    if not location_text:
-        return DEMO_PHONE_NUMBERS
-
-    location_lower = location_text.strip().lower()
-    selected_numbers = []
-
-    for area_id, keywords in AREA_KEYWORDS.items():
-        if any(keyword in location_lower for keyword in keywords):
-            number = AREA_TO_NUMBER.get(area_id)
-            if number:
-                selected_numbers.append(number)
-
-    # De-duplicate while preserving order
-    seen = set()
-    filtered = []
-    for n in selected_numbers:
-        if n not in seen:
-            seen.add(n)
-            filtered.append(n)
-
-    return filtered if filtered else DEMO_PHONE_NUMBERS
+    return DEMO_PHONE_NUMBERS
 
 # Initialize Twilio - only when needed
 def get_twilio_client():
