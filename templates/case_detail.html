@@ -288,23 +288,78 @@
             var group = new L.featureGroup(markers);
             map.fitBounds(group.getBounds().pad(0.1));
 
-            // Add Heatmap Layer (if multiple sightings exist)
-            if (mapData.sightings.length > 1) {
-                var heatmapData = mapData.sightings
-                    .filter(s => s.lat && s.lng)
-                    .map(s => [s.lat, s.lng, 1.0]);
+            // Create circular heatmap zones based on sighting density
+            if (mapData.sightings.length > 0) {
+                var circles = [];
+                var processedSightings = new Set();
 
-                var heat = L.heatLayer(heatmapData, {
-                    radius: 25,
-                    blur: 15,
-                    maxZoom: 17,
-                    gradient: { 0.4: 'blue', 0.6: 'lime', 0.8: 'yellow', 1.0: 'red' }
+                mapData.sightings.forEach((sighting, index) => {
+                    if (!sighting.lat || !sighting.lng || processedSightings.has(index)) return;
+
+                    // Count nearby sightings within 5km radius
+                    var nearbySightings = 0;
+                    var centerLat = sighting.lat;
+                    var centerLng = sighting.lng;
+
+                    mapData.sightings.forEach((otherSighting, otherIndex) => {
+                        if (!otherSighting.lat || !otherSighting.lng) return;
+
+                        // Calculate distance using Haversine formula
+                        var R = 6371; // Earth's radius in km
+                        var dLat = (otherSighting.lat - centerLat) * Math.PI / 180;
+                        var dLng = (otherSighting.lng - centerLng) * Math.PI / 180;
+                        var a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                            Math.cos(centerLat * Math.PI / 180) * Math.cos(otherSighting.lat * Math.PI / 180) *
+                            Math.sin(dLng / 2) * Math.sin(dLng / 2);
+                        var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+                        var distance = R * c;
+
+                        if (distance <= 5) {
+                            nearbySightings++;
+                            processedSightings.add(otherIndex);
+                        }
+                    });
+
+                    // Determine color based on density
+                    var color, fillOpacity, radius;
+                    if (nearbySightings >= 3) {
+                        color = '#dc3545'; // Red for high density (3+ sightings)
+                        fillOpacity = 0.5;
+                        radius = 5000; // 5km radius
+                    } else if (nearbySightings === 2) {
+                        color = '#ffc107'; // Yellow for medium density (2 sightings)
+                        fillOpacity = 0.4;
+                        radius = 3000; // 3km radius
+                    } else {
+                        color = '#17a2b8'; // Blue for single sighting
+                        fillOpacity = 0.3;
+                        radius = 2000; // 2km radius
+                    }
+
+                    // Create circle
+                    var circle = L.circle([centerLat, centerLng], {
+                        color: color,
+                        fillColor: color,
+                        fillOpacity: fillOpacity,
+                        radius: radius,
+                        weight: 2
+                    });
+
+                    // Add popup with density info
+                    var densityText = nearbySightings >= 3 ? 'High Density Zone' :
+                        nearbySightings === 2 ? 'Medium Density Zone' : 'Single Sighting';
+                    circle.bindPopup(`<strong>${densityText}</strong><br>${nearbySightings} sighting(s) in this area`);
+
+                    circles.push(circle);
                 });
 
-                // Add layer control to toggle between markers and heatmap
+                // Create layer groups
+                var circlesLayer = L.layerGroup(circles);
+
+                // Add layer control to toggle between markers and heatmap circles
                 var overlays = {
                     "Markers": group,
-                    "Heatmap": heat
+                    "Heatmap Zones": circlesLayer
                 };
                 L.control.layers(null, overlays).addTo(map);
 
