@@ -43,6 +43,13 @@ class Config:
     # Google Maps API (optional - for better geocoding)
     GOOGLE_MAPS_API_KEY = os.environ.get('GOOGLE_MAPS_API_KEY')
     
+    # Telegram Bot (optional - for free alerts)
+    TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN')
+    TELEGRAM_CHAT_ID = os.environ.get('TELEGRAM_CHAT_ID')
+    
+    # Discord Webhook (optional - for free alerts)
+    DISCORD_WEBHOOK_URL = os.environ.get('DISCORD_WEBHOOK_URL')
+    
     # File Upload Configuration
     UPLOAD_FOLDER = os.path.join(basedir, 'static', 'uploads')
     MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16MB max file size

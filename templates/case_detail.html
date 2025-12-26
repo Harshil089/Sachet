@@ -19,55 +19,57 @@
             </div>
             <div class="card-body">
                 {% if child.photo_filename %}
-                    {% if child.photo_filename.startswith('http') %}
-                        <!-- Cloudinary URL -->
-                        <img src="{{ child.photo_filename }}" 
-                             class="img-fluid rounded mb-3" alt="{{ child.name }}">
-                    {% else %}
-                        <!-- Local file -->
-                        <img src="{{ url_for('static', filename='uploads/photos/' + child.photo_filename) }}" 
-                             class="img-fluid rounded mb-3" alt="{{ child.name }}">
-                    {% endif %}
+                {% if child.photo_filename.startswith('http') %}
+                <!-- Cloudinary URL -->
+                <img src="{{ child.photo_filename }}" class="img-fluid rounded mb-3" alt="{{ child.name }}">
                 {% else %}
-                    <div class="placeholder-photo mb-3">
-                        <i class="fas fa-user fa-3x"></i>
-                    </div>
+                <!-- Local file -->
+                <img src="{{ url_for('static', filename='uploads/photos/' + child.photo_filename) }}"
+                    class="img-fluid rounded mb-3" alt="{{ child.name }}">
                 {% endif %}
-                
+                {% else %}
+                <div class="placeholder-photo mb-3">
+                    <i class="fas fa-user fa-3x"></i>
+                </div>
+                {% endif %}
+
                 <p><strong>Name:</strong> {{ child.name }}</p>
                 <p><strong>Age:</strong> {{ child.age }} years old</p>
                 <p><strong>Gender:</strong> {{ child.gender }}</p>
-                <p><strong>Status:</strong> 
+                <p><strong>Status:</strong>
                     <span class="badge bg-{{ 'danger' if child.status == 'missing' else 'success' }}">
                         {{ child.status.title() }}
                     </span>
                 </p>
-                <p><strong>Last Seen:</strong> {{ child.last_seen_location }}{% if child.location_subcategory %} <span class="text-muted">(Specific: {{ child.location_subcategory }})</span>{% endif %}</p>
+                <p><strong>Last Seen:</strong> {{ child.last_seen_location }}{% if child.location_subcategory %} <span
+                        class="text-muted">(Specific: {{ child.location_subcategory }})</span>{% endif %}</p>
                 <p><strong>Reported:</strong> {{ child.date_reported.strftime('%B %d, %Y at %I:%M %p') }}</p>
                 <p><strong>Description:</strong> {{ child.description }}</p>
                 {% if child.emergency_contact %}
-                <p><strong>Emergency Contact:</strong> 
-                    <a href="tel:{{ child.emergency_contact|replace(' ', '')|replace('(', '')|replace(')', '')|replace('-', '') }}">
+                <p><strong>Emergency Contact:</strong>
+                    <a
+                        href="tel:{{ child.emergency_contact|replace(' ', '')|replace('(', '')|replace(')', '')|replace('-', '') }}">
                         {{ child.emergency_contact }}
                     </a>
                 </p>
                 {% endif %}
-                
+
                 {% if child.audio_filename %}
                 <div class="mt-3">
                     <strong>Voice Recording:</strong><br>
                     {% if child.audio_filename.startswith('http') %}
-                        <!-- Cloudinary URL -->
-                        <audio controls class="w-100">
-                            <source src="{{ child.audio_filename }}" type="audio/mpeg">
-                            Your browser does not support the audio element.
-                        </audio>
+                    <!-- Cloudinary URL -->
+                    <audio controls class="w-100">
+                        <source src="{{ child.audio_filename }}" type="audio/mpeg">
+                        Your browser does not support the audio element.
+                    </audio>
                     {% else %}
-                        <!-- Local file -->
-                        <audio controls class="w-100">
-                            <source src="{{ url_for('static', filename='uploads/audio/' + child.audio_filename) }}" type="audio/mpeg">
-                            Your browser does not support the audio element.
-                        </audio>
+                    <!-- Local file -->
+                    <audio controls class="w-100">
+                        <source src="{{ url_for('static', filename='uploads/audio/' + child.audio_filename) }}"
+                            type="audio/mpeg">
+                        Your browser does not support the audio element.
+                    </audio>
                     {% endif %}
                 </div>
                 {% endif %}
@@ -75,8 +77,8 @@
                 <!-- PUBLIC ACTION: Only Report Sighting Button -->
                 <div class="mt-3">
                     <div class="d-grid">
-                        <a href="{{ url_for('report_found', report_id=child.report_id) }}" 
-                           class="btn btn-success btn-lg">
+                        <a href="{{ url_for('report_found', report_id=child.report_id) }}"
+                            class="btn btn-success btn-lg">
                             <i class="fas fa-search me-2"></i>Report Sighting
                         </a>
                     </div>
@@ -91,12 +93,16 @@
                         <button class="btn btn-outline-secondary" onclick="printCase()">
                             <i class="fas fa-print me-2"></i>Print Flyer
                         </button>
+                        <a href="{{ url_for('download_poster', report_id=child.report_id) }}"
+                            class="btn btn-outline-success">
+                            <i class="fas fa-download me-2"></i>Download Poster
+                        </a>
                     </div>
                 </div>
             </div>
         </div>
     </div>
-    
+
     <div class="col-md-8">
         <div class="card mb-4">
             <div class="card-header">
@@ -106,40 +112,40 @@
                 <div id="map" style="height: 400px;"></div>
             </div>
         </div>
-        
+
         <div class="card">
             <div class="card-header">
                 <h5>Sighting Reports ({{ sightings|length }})</h5>
             </div>
             <div class="card-body">
                 {% if sightings %}
-                    {% for sighting in sightings %}
-                    <div class="alert alert-info">
-                        <h6>{{ sighting.sighting_time.strftime('%B %d, %Y at %I:%M %p') }}</h6>
-                        <p><strong>Location:</strong> {{ sighting.location }}</p>
-                        {% if sighting.photo_filename %}
-                        <div class="mb-2">
-                            <img src="{{ sighting.photo_filename.startswith('http') and sighting.photo_filename or url_for('static', filename='uploads/photos/' + sighting.photo_filename) }}" alt="Sighting Photo" class="img-fluid rounded border" style="max-height: 240px;">
-                        </div>
-                        {% endif %}
-                        {% if sighting.description %}
-                        <p><strong>Details:</strong> {{ sighting.description }}</p>
-                        {% endif %}
-                        {% if sighting.reporter_phone %}
-                        <p><strong>Reporter:</strong> {{ sighting.reporter_phone }}</p>
-                        {% endif %}
+                {% for sighting in sightings %}
+                <div class="alert alert-info">
+                    <h6>{{ sighting.sighting_time.strftime('%B %d, %Y at %I:%M %p') }}</h6>
+                    <p><strong>Location:</strong> {{ sighting.location }}</p>
+                    {% if sighting.photo_filename %}
+                    <div class="mb-2">
+                        <img src="{{ sighting.photo_filename.startswith('http') and sighting.photo_filename or url_for('static', filename='uploads/photos/' + sighting.photo_filename) }}"
+                            alt="Sighting Photo" class="img-fluid rounded border" style="max-height: 240px;">
                     </div>
-                    {% endfor %}
+                    {% endif %}
+                    {% if sighting.description %}
+                    <p><strong>Details:</strong> {{ sighting.description }}</p>
+                    {% endif %}
+                    {% if sighting.reporter_phone %}
+                    <p><strong>Reporter:</strong> {{ sighting.reporter_phone }}</p>
+                    {% endif %}
+                </div>
+                {% endfor %}
                 {% else %}
-                    <div class="text-center py-4">
-                        <i class="fas fa-search fa-3x text-muted mb-3"></i>
-                        <h5 class="text-muted">No Sightings Reported Yet</h5>
-                        <p class="text-muted">Be the first to report if you have seen this child.</p>
-                        <a href="{{ url_for('report_found', report_id=child.report_id) }}" 
-                           class="btn btn-success">
-                            <i class="fas fa-plus me-2"></i>Report a Sighting
-                        </a>
-                    </div>
+                <div class="text-center py-4">
+                    <i class="fas fa-search fa-3x text-muted mb-3"></i>
+                    <h5 class="text-muted">No Sightings Reported Yet</h5>
+                    <p class="text-muted">Be the first to report if you have seen this child.</p>
+                    <a href="{{ url_for('report_found', report_id=child.report_id) }}" class="btn btn-success">
+                        <i class="fas fa-plus me-2"></i>Report a Sighting
+                    </a>
+                </div>
                 {% endif %}
             </div>
         </div>
@@ -211,51 +217,25 @@
 
 {% block scripts %}
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Parse map data from JSON
-    var mapData = JSON.parse(document.getElementById('map-data').textContent);
-    
-    // Initialize map
-    var map = L.map('map');
+    document.addEventListener('DOMContentLoaded', function () {
+        // Parse map data from JSON
+        var mapData = JSON.parse(document.getElementById('map-data').textContent);
 
-    // Add tile layer
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap contributors'
-    }).addTo(map);
+        // Initialize map
+        var map = L.map('map');
 
-    var markers = [];
-
-    // Add last seen location marker (red)
-    if (mapData.lastSeenLocation.lat !== null && mapData.lastSeenLocation.lng !== null) {
-        var lastSeenMarker = L.marker([mapData.lastSeenLocation.lat, mapData.lastSeenLocation.lng], {
-            icon: L.icon({
-                iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png',
-                shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
-                iconSize: [25, 41],
-                iconAnchor: [12, 41],
-                popupAnchor: [1, -34],
-                shadowSize: [41, 41]
-            })
+        // Add tile layer
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors'
         }).addTo(map);
-        
-        lastSeenMarker.bindPopup('Last seen location: ' + mapData.lastSeenLocation.address);
-        markers.push(lastSeenMarker);
-    }
 
-    // Add sighting markers
-    mapData.sightings.forEach(function(sighting) {
-        if (sighting.lat !== null && sighting.lng !== null) {
-            var sightingTime = new Date(sighting.time);
-            var hoursAgo = (new Date() - sightingTime) / (1000 * 60 * 60);
-            
-            // Color based on recency
-            var iconColor = 'green';
-            if (hoursAgo > 24) iconColor = 'orange';
-            if (hoursAgo > 168) iconColor = 'violet'; // 1 week old
-            
-            var sightingMarker = L.marker([sighting.lat, sighting.lng], {
+        var markers = [];
+
+        // Add last seen location marker (red)
+        if (mapData.lastSeenLocation.lat !== null && mapData.lastSeenLocation.lng !== null) {
+            var lastSeenMarker = L.marker([mapData.lastSeenLocation.lat, mapData.lastSeenLocation.lng], {
                 icon: L.icon({
-                    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-' + iconColor + '.png',
+                    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png',
                     shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
                     iconSize: [25, 41],
                     iconAnchor: [12, 41],
@@ -263,98 +243,128 @@ document.addEventListener('DOMContentLoaded', function() {
                     shadowSize: [41, 41]
                 })
             }).addTo(map);
-            
-            var popupContent = '<strong>Sighting #' + sighting.index + '</strong><br>' +
-                              '<strong>Time:</strong> ' + sightingTime.toLocaleString() + '<br>' +
-                              '<strong>Location:</strong> ' + sighting.location + '<br>';
-            
-            if (sighting.description) {
-                popupContent += '<strong>Details:</strong> ' + sighting.description;
+
+            lastSeenMarker.bindPopup('Last seen location: ' + mapData.lastSeenLocation.address);
+            markers.push(lastSeenMarker);
+        }
+
+        // Add sighting markers
+        mapData.sightings.forEach(function (sighting) {
+            if (sighting.lat !== null && sighting.lng !== null) {
+                var sightingTime = new Date(sighting.time);
+                var hoursAgo = (new Date() - sightingTime) / (1000 * 60 * 60);
+
+                // Color based on recency
+                var iconColor = 'green';
+                if (hoursAgo > 24) iconColor = 'orange';
+                if (hoursAgo > 168) iconColor = 'violet'; // 1 week old
+
+                var sightingMarker = L.marker([sighting.lat, sighting.lng], {
+                    icon: L.icon({
+                        iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-' + iconColor + '.png',
+                        shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+                        iconSize: [25, 41],
+                        iconAnchor: [12, 41],
+                        popupAnchor: [1, -34],
+                        shadowSize: [41, 41]
+                    })
+                }).addTo(map);
+
+                var popupContent = '<strong>Sighting #' + sighting.index + '</strong><br>' +
+                    '<strong>Time:</strong> ' + sightingTime.toLocaleString() + '<br>' +
+                    '<strong>Location:</strong> ' + sighting.location + '<br>';
+
+                if (sighting.description) {
+                    popupContent += '<strong>Details:</strong> ' + sighting.description;
+                }
+
+                sightingMarker.bindPopup(popupContent);
+                markers.push(sightingMarker);
             }
-            
-            sightingMarker.bindPopup(popupContent);
-            markers.push(sightingMarker);
+        });
+
+        // Fit map to show all markers
+        if (markers.length > 0) {
+            var group = new L.featureGroup(markers);
+            map.fitBounds(group.getBounds().pad(0.1));
+        } else {
+            // Default view if no markers
+            map.setView([39.8283, -98.5795], 4); // Center of USA
         }
     });
 
-    // Fit map to show all markers
-    if (markers.length > 0) {
-        var group = new L.featureGroup(markers);
-        map.fitBounds(group.getBounds().pad(0.1));
-    } else {
-        // Default view if no markers
-        map.setView([39.8283, -98.5795], 4); // Center of USA
-    }
-});
+    // Share functionality for public
+    function shareCase() {
+        const url = window.location.href;
+        const childName = '{{ child.name }}';
+        const text = `Help find missing child: ${childName}. Please share this case and report any sightings.`;
 
-// Share functionality for public
-function shareCase() {
-    const url = window.location.href;
-    const childName = '{{ child.name }}';
-    const text = `Help find missing child: ${childName}. Please share this case and report any sightings.`;
-    
-    if (navigator.share) {
-        navigator.share({
-            title: `Missing Child Alert - ${childName}`,
-            text: text,
-            url: url
-        }).catch(console.error);
-    } else {
-        // Fallback to copying URL
-        navigator.clipboard.writeText(url).then(function() {
-            alert('Case URL copied to clipboard! Please share it to help find this child.');
-        }).catch(function() {
-            prompt('Copy this URL to share the case:', url);
-        });
+        if (navigator.share) {
+            navigator.share({
+                title: `Missing Child Alert - ${childName}`,
+                text: text,
+                url: url
+            }).catch(console.error);
+        } else {
+            // Fallback to copying URL
+            navigator.clipboard.writeText(url).then(function () {
+                alert('Case URL copied to clipboard! Please share it to help find this child.');
+            }).catch(function () {
+                prompt('Copy this URL to share the case:', url);
+            });
+        }
     }
-}
 
-// Print functionality
-function printCase() {
-    window.print();
-}
+    // Print functionality
+    function printCase() {
+        window.print();
+    }
 </script>
 
 <style>
-/* Print styles for flyers */
-@media print {
-    .navbar, .btn, .card-header, .alert {
-        display: none !important;
-    }
-    
-    .card {
-        border: none !important;
-        box-shadow: none !important;
-    }
-    
-    body {
-        background: white !important;
-    }
-    
-    .container {
-        max-width: 100% !important;
-    }
-}
+    /* Print styles for flyers */
+    @media print {
 
-/* Enhanced public view styles */
-.placeholder-photo {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 200px;
-    border-radius: 8px;
-}
+        .navbar,
+        .btn,
+        .card-header,
+        .alert {
+            display: none !important;
+        }
 
-.btn-lg {
-    padding: 12px 24px;
-    font-size: 1.1rem;
-}
+        .card {
+            border: none !important;
+            box-shadow: none !important;
+        }
 
-/* Emergency contact styling */
-.card-header.bg-danger {
-    background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%) !important;
-}
+        body {
+            background: white !important;
+        }
+
+        .container {
+            max-width: 100% !important;
+        }
+    }
+
+    /* Enhanced public view styles */
+    .placeholder-photo {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 200px;
+        border-radius: 8px;
+    }
+
+    .btn-lg {
+        padding: 12px 24px;
+        font-size: 1.1rem;
+    }
+
+    /* Emergency contact styling */
+    .card-header.bg-danger {
+        background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%) !important;
+    }
 </style>
 {% endblock %}

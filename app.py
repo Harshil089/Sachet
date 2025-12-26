@@ -228,6 +228,7 @@ class Sighting(db.Model):
     description = db.Column(db.Text)
     reporter_phone = db.Column(db.String(20))
     photo_filename = db.Column(db.String(500))  # Optional photo proof for sighting
+    face_match_score = db.Column(db.Float, nullable=True)  # AI face comparison score (0-100)
     sighting_time = db.Column(db.DateTime, default=datetime.utcnow)
 
 class User(UserMixin, db.Model):
@@ -1058,6 +1059,17 @@ def report_found(report_id):
             photo_filename=sighting_photo_url
         )
         
+        # AI Face Comparison (if both photos available)
+        if sighting_photo_url and missing_child.photo_filename:
+            try:
+                from utils.face_comparison import compare_faces
+                match_score = compare_faces(missing_child.photo_filename, sighting_photo_url)
+                sighting.face_match_score = match_score
+                if match_score:
+                    print(f"🔍 Face match score: {match_score}%")
+            except Exception as e:
+                print(f"⚠️ Face comparison skipped: {str(e)}")
+        
         db.session.add(sighting)
         db.session.commit()
         
@@ -1068,9 +1080,20 @@ def report_found(report_id):
             f"Report/updates: {report_url}"
         )
         
-        # Area-wise broadcasting: choose numbers based on location text
-        target_numbers = select_numbers_for_location(location)
-        sent_count = send_sms_alert_to_numbers(sms_message, target_numbers)
+        # Broadcast via all channels (SMS, Telegram, Discord)
+        try:
+            from utils.messaging import broadcast_alert
+            target_numbers = select_numbers_for_location(location)
+            broadcast_alert(
+                message=sms_message,
+                photo_url=missing_child.photo_filename,
+                sms_func=lambda msg: send_sms_alert_to_numbers(msg, target_numbers)
+            )
+        except Exception as e:
+            # Fallback to SMS only
+            print(f"⚠️ Broadcast error, using SMS only: {str(e)}")
+            target_numbers = select_numbers_for_location(location)
+            send_sms_alert_to_numbers(sms_message, target_numbers)
         
         flash('Thank you for reporting the sighting! Alert sent to authorities and subscribers.', 'success')
         return redirect(url_for('report_found', report_id=report_id))
@@ -1082,6 +1105,36 @@ def case_detail(report_id):
     missing_child = MissingChild.query.filter_by(report_id=report_id).first_or_404()
     sightings = Sighting.query.filter_by(report_id=report_id).order_by(Sighting.sighting_time.desc()).all()
     return render_template('case_detail.html', child=missing_child, sightings=sightings)
+
+@app.route('/poster/<report_id>')
+def download_poster(report_id):
+    """Generate and download missing child poster"""
+    missing_child = MissingChild.query.filter_by(report_id=report_id).first_or_404()
+    
+    try:
+        from utils.poster_generator import generate_missing_poster
+        from io import BytesIO
+        from flask import send_file
+        
+        # Generate poster
+        poster = generate_missing_poster(missing_child, base_url=request.url_root.rstrip('/'))
+        
+        # Save to BytesIO
+        img_io = BytesIO()
+        poster.save(img_io, 'PNG', quality=95)
+        img_io.seek(0)
+        
+        # Send file
+        return send_file(
+            img_io,
+            mimetype='image/png',
+            as_attachment=True,
+            download_name=f'missing_{missing_child.name.replace(" ", "_")}_{report_id}.png'
+        )
+    except Exception as e:
+        print(f"❌ Poster generation error: {str(e)}")
+        flash('Error generating poster. Please try again.', 'error')
+        return redirect(url_for('case_detail', report_id=report_id))
 
 @app.route('/admin/login', methods=['GET', 'POST'])
 def admin_login():
