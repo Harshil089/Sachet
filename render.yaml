@@ -70,18 +70,10 @@ services:
       - key: CLOUDINARY_API_SECRET
         sync: false
 
-      # Google Maps API
-      - key: GOOGLE_MAPS_API_KEY
-        sync: false
-
       # Telegram Bot
       - key: TELEGRAM_BOT_TOKEN
         sync: false
       - key: TELEGRAM_CHAT_ID
-        sync: false
-
-      # Discord Webhook
-      - key: DISCORD_WEBHOOK_URL
         sync: false
 
       # Twilio (optional)
@@ -160,10 +152,6 @@ services:
       - key: TELEGRAM_CHAT_ID
         sync: false
 
-      # Discord
-      - key: DISCORD_WEBHOOK_URL
-        sync: false
-
       # Twilio (optional)
       - key: TWILIO_ACCOUNT_SID
         sync: false
@@ -187,10 +175,6 @@ services:
         sync: false  # Must match gateway's SERVICE_API_KEY
       - key: FLASK_ENV
         value: production
-
-      # Google Maps API
-      - key: GOOGLE_MAPS_API_KEY
-        sync: false
 
   # ==================== ANALYTICS SERVICE ====================
   - type: web
