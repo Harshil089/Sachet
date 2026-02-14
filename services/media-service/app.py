@@ -4,6 +4,7 @@ Port: 5002
 """
 import os
 import io
+from io import BytesIO
 import cloudinary
 import cloudinary.uploader
 from functools import wraps
@@ -18,7 +19,21 @@ from shared.config import Config
 
 # Import poster generator
 sys.path.append(os.path.join(os.path.dirname(__file__), 'utils'))
-from poster_generator import generate_poster_pdf
+from poster_generator import generate_missing_poster
+
+
+# Simple class to wrap poster data
+class MissingChildData:
+    def __init__(self, **kwargs):
+        self.id = kwargs.get('report_id')
+        self.name = kwargs.get('name')
+        self.age = kwargs.get('age')
+        self.gender = kwargs.get('gender')
+        self.last_seen_location = kwargs.get('location')
+        self.last_seen_date = kwargs.get('last_seen', '')
+        self.description = kwargs.get('description', '')
+        self.contact_info = kwargs.get('contact_info')
+        self.photo_filename = kwargs.get('photo_url')  # URL for photo
 
 
 app = Flask(__name__)
@@ -288,18 +303,14 @@ def generate_poster():
                 'success': False
             }), 400
 
-        # Generate poster PDF
-        pdf_buffer = generate_poster_pdf(
-            report_id=data['report_id'],
-            name=data['name'],
-            age=data['age'],
-            gender=data['gender'],
-            location=data['location'],
-            last_seen=data.get('last_seen', ''),
-            description=data.get('description', ''),
-            contact_info=data['contact_info'],
-            photo_url=data['photo_url']
-        )
+        # Create wrapper object and generate poster
+        child_data = MissingChildData(**data)
+        poster_image = generate_missing_poster(child_data)
+
+        # Convert PIL Image to PDF buffer
+        pdf_buffer = BytesIO()
+        poster_image.save(pdf_buffer, format='PDF', resolution=300.0)
+        pdf_buffer.seek(0)
 
         # Return PDF file
         return send_file(
