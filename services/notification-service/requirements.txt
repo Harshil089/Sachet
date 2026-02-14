@@ -1,0 +1,5 @@
+-r ../../requirements-shared.txt
+python-telegram-bot==20.7
+requests==2.31.0
+twilio==8.8.0
+gunicorn==21.2.0
